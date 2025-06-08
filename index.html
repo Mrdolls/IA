@@ -89,8 +89,8 @@
 				</div>
 				<p class="text-gray-200 text-lg mb-1"><span class="font-semibold">Score de la vague:</span> <span
 						id="currentScore" class="font-bold">0</span></p>
-						<p class="text-gray-200 text-sm"><span class="font-semibold">Epsilon (Exploration):</span> <span id="epsilonDisplay"
-								class="font-bold text-teal-400">N/A</span></p>
+				<p class="text-gray-200 text-sm"><span class="font-semibold">Epsilon (Exploration):</span> <span
+						id="epsilonDisplay" class="font-bold text-teal-400">N/A</span></p>
 				<p class="text-gray-200 text-lg mb-1"><span class="font-semibold">Statut:</span> <span
 						id="statusMessage" class="font-bold text-yellow-400">Chargement...</span></p>
 
@@ -143,6 +143,18 @@
 				class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-75 w-full mt-2">
 				Réinitialiser les paramètres par défaut
 			</button>
+
+			<!-- Save/Load Settings -->
+			<div class="mt-4 pt-4 border-t border-gray-600">
+				<button id="saveSettingsButton"
+					class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-opacity-75 w-full mt-4">Sauvegarder
+					Paramètres</button>
+				<button id="loadSettingsButton"
+					class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 w-full mt-2">Charger
+					Paramètres</button>
+				<input type="file" id="loadSettingsFile" accept=".json" style="display: none;">
+			</div>
+
 			<!-- Game Parameters -->
 			<div class="bg-gray-700 p-4 rounded-lg">
 				<h3 class="text-xl font-semibold mb-3 text-gray-100">Paramètres du jeu</h3>
@@ -253,6 +265,21 @@
 						class="w-full p-2 bg-gray-900 border border-gray-600 rounded-md text-gray-100">
 				</div>
 				<div class="mb-2">
+					<label for="selectionMethodInput" class="block text-sm font-medium text-gray-300">Méthode de
+						Sélection:</label>
+					<select id="selectionMethodInput"
+						class="w-full p-2 bg-gray-900 border border-gray-600 rounded-md text-gray-100 focus:ring-indigo-500 focus:border-indigo-500">
+						<option value="elitismPlusChampion">Élitisme + Champion</option>
+						<option value="tournament">Tournoi</option>
+					</select>
+				</div>
+				<div class="mb-2" id="tournamentSizeSetting"> <!-- Wrapper pour gérer la visibilité -->
+					<label for="tournamentSizeInput" class="block text-sm font-medium text-gray-300">Taille du Tournoi
+						(si Tournoi):</label>
+					<input type="number" id="tournamentSizeInput" min="2" max="10" value="3"
+						class="w-full p-2 bg-gray-900 border border-gray-600 rounded-md text-gray-100">
+				</div>
+				<div class="mb-2">
 					<label for="mutationRateInput" class="block text-sm font-medium text-gray-300">Taux de
 						Mutation:</label>
 					<input type="range" id="mutationRateInput" min="0.01" max="0.5" step="0.01" value="0.08"
@@ -286,6 +313,27 @@
 						class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer range-lg accent-blue-500">
 					<span id="epsilonFinalValue" class="text-sm text-gray-400">0.01</span>
 				</div>
+				<div class="mb-2">
+					<label for="epsilonDecayRateInput" class="block text-sm font-medium text-gray-300">Taux de
+						Décroissance Epsilon:</label>
+					<input type="range" id="epsilonDecayRateInput" min="0.9" max="1.0" step="0.001" value="0.995"
+						class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer range-lg accent-blue-500">
+					<span id="epsilonDecayRateValue" class="text-sm text-gray-400">0.995</span>
+				</div>
+				<!-- Commented out incorrect stagnation fields -->
+				<!--
+				<div class="mb-2">
+					<label for="maxGenerationsWithoutImprovementInput" class="block text-sm font-medium text-gray-300">Générations Max Sans Amélioration:</label>
+					<input type="number" id="maxGenerationsWithoutImprovementInput" min="5" max="200" step="1" value="20"
+						class="w-full p-2 bg-gray-900 border border-gray-600 rounded-md text-gray-100">
+				</div>
+				<div class="mb-2">
+					<label for="stagnationActionFactorInput" class="block text-sm font-medium text-gray-300">Facteur d'Action (Stagnation):</label>
+					<input type="range" id="stagnationActionFactorInput" min="0.1" max="2.0" step="0.05" value="0.5"
+						class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer range-lg accent-blue-500">
+					<span id="stagnationActionFactorValue" class="text-sm text-gray-400">0.50</span>
+				</div>
+				-->
 			</div>
 
 			<!-- Display & UI -->
@@ -333,8 +381,13 @@
 		// --- Population & Genetic Algorithm Constants (now using let) ---
 		let POPULATION_SIZE = 15;
 		let ELITISM_COUNT = 5;
+		let SELECTION_METHOD = 'elitismPlusChampion'; // NOUVEAU: Méthode de sélection
+		let TOURNAMENT_SIZE = 3; // NOUVEAU: Taille du tournoi
 		let MUTATION_RATE = 0.08;
 		let MUTATION_AMOUNT = 0.15;
+		// let MAX_GENERATIONS_WITHOUT_IMPROVEMENT = 20; // Commented out
+		// let STAGNATION_ACTION_FACTOR = 0.5; // Commented out
+
 
 		// --- Fixed Simulation Parameters (now using let if configurable) ---
 		let AI_DECISION_INTERVAL = 2;
@@ -344,73 +397,73 @@
 		let neuralNetworks = [];
 		let individualScores = new Array(POPULATION_SIZE).fill(0);
 		const individualColors = [
-				// Rouges et roses modérés
-				"rgba(220, 50, 50, 0.9)",    // Rouge moyen
-				"rgba(190, 70, 90, 0.9)",    // Rose foncé
-				"rgba(170, 60, 60, 0.9)",    // Bordeaux clair
-				"rgba(255, 99, 71, 0.9)",    // Tomate
-				"rgba(205, 92, 92, 0.9)",    // IndianRed
+			// Rouges et roses modérés
+			"rgba(220, 50, 50, 0.9)",    // Rouge moyen
+			"rgba(190, 70, 90, 0.9)",    // Rose foncé
+			"rgba(170, 60, 60, 0.9)",    // Bordeaux clair
+			"rgba(255, 99, 71, 0.9)",    // Tomate
+			"rgba(205, 92, 92, 0.9)",    // IndianRed
 
-				// Bleus et turquoises modérés
-				"rgba(60, 120, 200, 0.9)",   // Bleu roi
-				"rgba(40, 100, 150, 0.9)",   // Bleu acier
-				"rgba(70, 130, 180, 0.9)",   // Bleu cadet
-				"rgba(0, 150, 136, 0.9)",    // Turquoise foncé
-				"rgba(64, 224, 208, 0.9)",   // Turquoise
-				"rgba(100, 149, 237, 0.9)",  // CornflowerBlue
+			// Bleus et turquoises modérés
+			"rgba(60, 120, 200, 0.9)",   // Bleu roi
+			"rgba(40, 100, 150, 0.9)",   // Bleu acier
+			"rgba(70, 130, 180, 0.9)",   // Bleu cadet
+			"rgba(0, 150, 136, 0.9)",    // Turquoise foncé
+			"rgba(64, 224, 208, 0.9)",   // Turquoise
+			"rgba(100, 149, 237, 0.9)",  // CornflowerBlue
 
-				// Verts et olives modérés
-				"rgba(50, 160, 100, 0.9)",   // Vert forêt
-				"rgba(85, 107, 47, 0.9)",    // Olive Drab
-				"rgba(0, 128, 0, 0.9)",      // Vert
-				"rgba(60, 179, 113, 0.9)",   // MediumSeaGreen
-				"rgba(124, 252, 0, 0.9)",    // LawnGreen
+			// Verts et olives modérés
+			"rgba(50, 160, 100, 0.9)",   // Vert forêt
+			"rgba(85, 107, 47, 0.9)",    // Olive Drab
+			"rgba(0, 128, 0, 0.9)",      // Vert
+			"rgba(60, 179, 113, 0.9)",   // MediumSeaGreen
+			"rgba(124, 252, 0, 0.9)",    // LawnGreen
 
-				// Jaunes et oranges modérés
-				"rgba(255, 165, 0, 0.9)",    // Orange
-				"rgba(255, 190, 0, 0.9)",    // Jaune-Orange
-				"rgba(218, 165, 32, 0.9)",   // Goldenrod
-				"rgba(255, 140, 0, 0.9)",    // DarkOrange
-				"rgba(255, 215, 0, 0.9)",    // Gold (légèrement plus vif, mais un classique)
+			// Jaunes et oranges modérés
+			"rgba(255, 165, 0, 0.9)",    // Orange
+			"rgba(255, 190, 0, 0.9)",    // Jaune-Orange
+			"rgba(218, 165, 32, 0.9)",   // Goldenrod
+			"rgba(255, 140, 0, 0.9)",    // DarkOrange
+			"rgba(255, 215, 0, 0.9)",    // Gold (légèrement plus vif, mais un classique)
 
-				// Violets et magentas modérés
-				"rgba(138, 43, 226, 0.9)",   // BlueViolet
-				"rgba(147, 112, 219, 0.9)",  // MediumPurple
-				"rgba(199, 21, 133, 0.9)",   // MediumVioletRed
-				"rgba(186, 85, 211, 0.9)",   // MediumOrchid
-				"rgba(128, 0, 128, 0.9)",    // Pourpre
+			// Violets et magentas modérés
+			"rgba(138, 43, 226, 0.9)",   // BlueViolet
+			"rgba(147, 112, 219, 0.9)",  // MediumPurple
+			"rgba(199, 21, 133, 0.9)",   // MediumVioletRed
+			"rgba(186, 85, 211, 0.9)",   // MediumOrchid
+			"rgba(128, 0, 128, 0.9)",    // Pourpre
 
-				// Marrons et ocres
-				"rgba(139, 69, 19, 0.9)",    // SaddleBrown
-				"rgba(165, 42, 42, 0.9)",    // Brown
-				"rgba(210, 105, 30, 0.9)",   // Chocolat
-				"rgba(184, 134, 11, 0.9)",   // DarkGoldenrod
-				"rgba(128, 64, 0, 0.9)",     // Marron terre
+			// Marrons et ocres
+			"rgba(139, 69, 19, 0.9)",    // SaddleBrown
+			"rgba(165, 42, 42, 0.9)",    // Brown
+			"rgba(210, 105, 30, 0.9)",   // Chocolat
+			"rgba(184, 134, 11, 0.9)",   // DarkGoldenrod
+			"rgba(128, 64, 0, 0.9)",     // Marron terre
 
-				// Gris et neutres
-				"rgba(105, 105, 105, 0.9)",  // DimGray
-				"rgba(119, 136, 153, 0.9)",  // LightSlateGray
-				"rgba(169, 169, 169, 0.9)",  // DarkGray
-				"rgba(192, 192, 192, 0.9)",  // Argent
-				"rgba(128, 128, 128, 0.9)",  // Gris
-				"rgba(70, 80, 90, 0.9)",     // Gris anthracite
+			// Gris et neutres
+			"rgba(105, 105, 105, 0.9)",  // DimGray
+			"rgba(119, 136, 153, 0.9)",  // LightSlateGray
+			"rgba(169, 169, 169, 0.9)",  // DarkGray
+			"rgba(192, 192, 192, 0.9)",  // Argent
+			"rgba(128, 128, 128, 0.9)",  // Gris
+			"rgba(70, 80, 90, 0.9)",     // Gris anthracite
 
-				// Couleurs variées et intermédiaires
-				"rgba(240, 128, 128, 0.9)",  // LightCoral
-				"rgba(255, 127, 80, 0.9)",   // Corail
-				"rgba(60, 179, 113, 0.9)",   // MediumSeaGreen (doublon, on le remplace) -> "rgba(95, 158, 160, 0.9)" // CadetBlue
-				"rgba(0, 191, 255, 0.9)",    // DeepSkyBlue
-				"rgba(106, 90, 205, 0.9)",   // SlateBlue
-				"rgba(255, 20, 147, 0.9)",   // DeepPink
-				"rgba(255, 99, 199, 0.9)",   // HotPink
-				"rgba(152, 251, 152, 0.9)",  // PaleGreen
-				"rgba(173, 255, 47, 0.9)",   // GreenYellow
-				"rgba(255, 160, 122, 0.9)",  // LightSalmon
-				"rgba(244, 164, 96, 0.9)",   // SandyBrown
-				"rgba(176, 224, 230, 0.9)",  // PowderBlue
-				"rgba(135, 206, 235, 0.9)",  // SkyBlue
-				"rgba(175, 238, 238, 0.9)"   // PaleTurquoise
-			];
+			// Couleurs variées et intermédiaires
+			"rgba(240, 128, 128, 0.9)",  // LightCoral
+			"rgba(255, 127, 80, 0.9)",   // Corail
+			"rgba(60, 179, 113, 0.9)",   // MediumSeaGreen (doublon, on le remplace) -> "rgba(95, 158, 160, 0.9)" // CadetBlue
+			"rgba(0, 191, 255, 0.9)",    // DeepSkyBlue
+			"rgba(106, 90, 205, 0.9)",   // SlateBlue
+			"rgba(255, 20, 147, 0.9)",   // DeepPink
+			"rgba(255, 99, 199, 0.9)",   // HotPink
+			"rgba(152, 251, 152, 0.9)",  // PaleGreen
+			"rgba(173, 255, 47, 0.9)",   // GreenYellow
+			"rgba(255, 160, 122, 0.9)",  // LightSalmon
+			"rgba(244, 164, 96, 0.9)",   // SandyBrown
+			"rgba(176, 224, 230, 0.9)",  // PowderBlue
+			"rgba(135, 206, 235, 0.9)",  // SkyBlue
+			"rgba(175, 238, 238, 0.9)"   // PaleTurquoise
+		];
 		let currentIndividualIndex = 0;
 		let currentGeneration = 1;
 		let currentGenerationCircleData = [];
@@ -434,6 +487,22 @@
 		let gameLoopId;
 		let showGhostIndividuals = true; // MODIFIED: default value to true
 		let overallBestScore = -Infinity;
+		// let generationsSinceLastImprovement = 0; // Commented out
+		// let lastOverallBestScore = -Infinity; // Commented out
+
+
+		// Function to manage visibility of tournament size input
+		function updateTournamentSizeVisibility() {
+			// Use settingsInputs.selectionMethod.value if available, otherwise fallback to global SELECTION_METHOD
+			// This helps during initial load before settingsInputs might be fully processed by all scripts
+			const currentSelectionMethod = settingsInputs && settingsInputs.selectionMethod ? settingsInputs.selectionMethod.value : SELECTION_METHOD;
+			const tournamentSizeDiv = document.getElementById('tournamentSizeSetting');
+			if (tournamentSizeDiv) {
+				tournamentSizeDiv.style.display = currentSelectionMethod === 'tournament' ? 'block' : 'none';
+			} else {
+				console.warn("tournamentSizeSetting div not found by updateTournamentSizeVisibility");
+			}
+		}
 
 		// Variables for focus inertia in ghost mode (now using let)
 		let currentFocusedIndividual = 0;
@@ -444,6 +513,7 @@
 		let epsilon = 0.8;
 		let initialEpsilon = 0.8; // Now configurable
 		let finalEpsilon = 0.01; // Now configurable
+		let epsilonDecayRate = 0.995;
 
 		const OUTPUT_ACTIONS = ['idle', 'up', 'down', 'left', 'right'];
 
@@ -489,11 +559,16 @@
 
 			populationSize: document.getElementById('populationSizeInput'),
 			elitismCount: document.getElementById('elitismCountInput'),
+			selectionMethod: document.getElementById('selectionMethodInput'), // NOUVEAU
+			tournamentSize: document.getElementById('tournamentSizeInput'), // NOUVEAU
 			mutationRate: document.getElementById('mutationRateInput'),
 			mutationAmount: document.getElementById('mutationAmountInput'),
 			aiDecisionInterval: document.getElementById('aiDecisionIntervalInput'),
 			epsilonInitial: document.getElementById('epsilonInitialInput'),
 			epsilonFinal: document.getElementById('epsilonFinalInput'),
+			epsilonDecayRate: document.getElementById('epsilonDecayRateInput'),
+			// maxGenerationsWithoutImprovement: document.getElementById('maxGenerationsWithoutImprovementInput'), // Commented out
+			// stagnationActionFactor: document.getElementById('stagnationActionFactorInput'), // Commented out
 
 			showGhostIndividuals: document.getElementById('showGhostIndividualsInput'),
 			focusChangeThresholdFrames: document.getElementById('focusChangeThresholdFramesInput')
@@ -506,6 +581,8 @@
 			mutationAmount: document.getElementById('mutationAmountValue'),
 			epsilonInitial: document.getElementById('epsilonInitialValue'),
 			epsilonFinal: document.getElementById('epsilonFinalValue'),
+			epsilonDecayRate: document.getElementById('epsilonDecayRateValue'),
+			// stagnationActionFactor: document.getElementById('stagnationActionFactorValue'), // Commented out
 		};
 
 
@@ -528,12 +605,17 @@
 			PENALTY_NO_COLLECTION_SOON: -0.5,
 			POPULATION_SIZE: 15,
 			ELITISM_COUNT: 4,
+			SELECTION_METHOD: 'elitismPlusChampion', // NOUVEAU
+			TOURNAMENT_SIZE: 3, // NOUVEAU
 			MUTATION_RATE: 0.08,
 			MUTATION_AMOUNT: 0.15,
 			AI_DECISION_INTERVAL: 5,
 			FOCUS_CHANGE_THRESHOLD_FRAMES: 75,
 			initialEpsilon: 0.8,
 			finalEpsilon: 0.01,
+			epsilonDecayRate: 0.995,
+			// maxGenerationsWithoutImprovement: 20, // Commented out
+			// stagnationActionFactor: 0.5, // Commented out
 			showGhostIndividuals: true
 		};
 
@@ -710,15 +792,15 @@
 			for (const key in settingsInputs) {
 				const inputElement = settingsInputs[key];
 				// Use 'input' for range and number inputs, 'change' for checkboxes
-				const eventType = (inputElement.type === 'range' || inputElement.type === 'number') ? 'input' : 'change';
+				const eventType = (inputElement.type === 'range' || inputElement.type === 'number' || inputElement.tagName === 'SELECT') ? 'input' : 'change';
 				inputElement.addEventListener(eventType, applySettings);
 
 				// Update corresponding span values for range inputs immediately
 				if (inputElement.type === 'range') {
 					inputElement.addEventListener('input', (e) => {
 						if (settingsValuesSpans[key]) {
-							// Handle specific formatting for epsilonFinal
-							if (key === 'epsilonFinal') {
+							// Handle specific formatting for epsilonFinal and epsilonDecayRate
+							if (key === 'epsilonFinal' || key === 'epsilonDecayRate' || key === 'stagnationActionFactor') {
 								settingsValuesSpans[key].textContent = parseFloat(e.target.value).toFixed(3);
 							} else if (key === 'gameSize') { // Handle gameSize input to update text for both dimensions
 								settingsValuesSpans[key].textContent = `${e.target.value}x${e.target.value}`;
@@ -732,6 +814,53 @@
 			}
 
 			resetSettingsButton.addEventListener('click', resetSettings);
+
+			// --- Récupération des nouveaux boutons de sauvegarde/chargement des paramètres ---
+			const saveSettingsButton = document.getElementById('saveSettingsButton');
+			const loadSettingsButton = document.getElementById('loadSettingsButton');
+			const loadSettingsFile = document.getElementById('loadSettingsFile');
+			const selectionMethodInput = document.getElementById('selectionMethodInput'); // NOUVEAU
+			const tournamentSizeSetting = document.getElementById('tournamentSizeSetting'); // NOUVEAU
+
+
+			// --- Attachement des écouteurs d'événements pour sauvegarde/chargement ---
+			if (saveSettingsButton) {
+				saveSettingsButton.addEventListener('click', saveSettingsToFile);
+			}
+
+			if (loadSettingsButton && loadSettingsFile) {
+				loadSettingsButton.addEventListener('click', () => {
+					// On s'assure que la fonction triggerLoadSettings est bien appelée
+					// pour cliquer sur l'input fichier caché.
+					if (typeof triggerLoadSettings === 'function') {
+						triggerLoadSettings();
+					} else {
+						console.error('triggerLoadSettings function is not defined.');
+						// Fallback au cas où, même si triggerLoadSettings est simple
+						loadSettingsFile.click();
+					}
+				});
+				loadSettingsFile.addEventListener('change', loadSettingsFromFile);
+			} else {
+				if (!loadSettingsButton) console.error('loadSettingsButton not found');
+				if (!loadSettingsFile) console.error('loadSettingsFile input not found');
+			}
+
+			// --- Écouteur pour la méthode de sélection pour afficher/masquer la taille du tournoi ---
+			// The generic event listener for all settingsInputs (which includes selectionMethod)
+			// already calls applySettings. applySettings will now call updateTournamentSizeVisibility.
+			// So, a specific listener here for 'change' just to call applySettings and updateTournamentSizeVisibility
+			// might be redundant if applySettings handles it.
+			// However, ensuring the initial visibility is set correctly on DOMContentLoaded is good.
+			if (selectionMethodInput && tournamentSizeSetting) {
+				// Initial visibility setup on load, based on the default SELECTION_METHOD or loaded settings
+				// This is important before populateSettingsInputs or applySettings might have run from other triggers.
+				updateTournamentSizeVisibility(); // Call the global function here for initial setup
+			} else {
+				if (!selectionMethodInput) console.error('selectionMethodInput not found on DOMContentLoaded');
+				if (!tournamentSizeSetting) console.error('tournamentSizeSetting div not found on DOMContentLoaded');
+			}
+
 		});
 
 		function toggleSettingsPanel() {
@@ -743,7 +872,7 @@
 
 		function populateSettingsInputs() {
 			// Game Parameters
-			settingsInputs.gameSize.value = GAME_WIDTH; // Use GAME_WIDTH as the single source for game size
+			settingsInputs.gameSize.value = GAME_WIDTH;
 			settingsValuesSpans.gameSize.textContent = `${GAME_WIDTH}x${GAME_HEIGHT}`;
 			settingsInputs.squareSize.value = SQUARE_SIZE;
 			settingsInputs.circleRadius.value = CIRCLE_RADIUS;
@@ -764,6 +893,8 @@
 			// Genetic Algorithm Parameters
 			settingsInputs.populationSize.value = POPULATION_SIZE;
 			settingsInputs.elitismCount.value = ELITISM_COUNT;
+			settingsInputs.selectionMethod.value = SELECTION_METHOD;
+			settingsInputs.tournamentSize.value = TOURNAMENT_SIZE;
 			settingsInputs.mutationRate.value = MUTATION_RATE;
 			settingsValuesSpans.mutationRate.textContent = MUTATION_RATE.toFixed(2);
 			settingsInputs.mutationAmount.value = MUTATION_AMOUNT;
@@ -773,10 +904,18 @@
 			settingsValuesSpans.epsilonInitial.textContent = initialEpsilon.toFixed(2);
 			settingsInputs.epsilonFinal.value = finalEpsilon;
 			settingsValuesSpans.epsilonFinal.textContent = finalEpsilon.toFixed(3);
+			settingsInputs.epsilonDecayRate.value = epsilonDecayRate;
+			settingsValuesSpans.epsilonDecayRate.textContent = epsilonDecayRate.toFixed(3);
+			// settingsInputs.maxGenerationsWithoutImprovement.value = MAX_GENERATIONS_WITHOUT_IMPROVEMENT; // Already commented out
+			// settingsInputs.stagnationActionFactor.value = STAGNATION_ACTION_FACTOR; // Already commented out
+			// settingsValuesSpans.stagnationActionFactor.textContent = STAGNATION_ACTION_FACTOR.toFixed(2); // Already commented out
+
 
 			// Display & UI
 			settingsInputs.showGhostIndividuals.checked = showGhostIndividuals;
 			settingsInputs.focusChangeThresholdFrames.value = FOCUS_CHANGE_THRESHOLD_FRAMES;
+
+			updateTournamentSizeVisibility(); // Ensure visibility is correct when populating settings
 		}
 
 		function applySettings() {
@@ -824,12 +963,19 @@
 			}
 			POPULATION_SIZE = newPopulationSize;
 			ELITISM_COUNT = newElitismCount;
+			SELECTION_METHOD = settingsInputs.selectionMethod.value;
+			TOURNAMENT_SIZE = parseInt(settingsInputs.tournamentSize.value);
+			// Visibility is now handled by updateTournamentSizeVisibility
+
 
 			MUTATION_RATE = parseFloat(settingsInputs.mutationRate.value);
 			MUTATION_AMOUNT = parseFloat(settingsInputs.mutationAmount.value);
 			AI_DECISION_INTERVAL = parseInt(settingsInputs.aiDecisionInterval.value);
 			initialEpsilon = parseFloat(settingsInputs.epsilonInitial.value);
 			finalEpsilon = parseFloat(settingsInputs.epsilonFinal.value);
+			epsilonDecayRate = parseFloat(settingsInputs.epsilonDecayRate.value);
+			// MAX_GENERATIONS_WITHOUT_IMPROVEMENT = parseInt(settingsInputs.maxGenerationsWithoutImprovement.value); // Commented out
+			// STAGNATION_ACTION_FACTOR = parseFloat(settingsInputs.stagnationActionFactor.value); // Commented out
 			epsilon = initialEpsilon; // Reset epsilon when settings are applied
 
 			showGhostIndividuals = settingsInputs.showGhostIndividuals.checked;
@@ -879,6 +1025,8 @@
 			currentIndividualIndex = 0;
 			currentStepInGeneration = 0;
 			overallBestScore = -Infinity;
+			// generationsSinceLastImprovement = 0; // Commented out
+			// lastOverallBestScore = -Infinity; // Commented out
 			currentFocusedIndividual = 0;
 			candidateForFocus = 0;
 			framesAsCandidate = 0;
@@ -892,9 +1040,13 @@
 				GAME_WIDTH, GAME_HEIGHT, SQUARE_SIZE, CIRCLE_RADIUS, INITIAL_CIRCLES, WAVE_DURATION, MAX_WAVES,
 				REWARD_COLLECT_CIRCLE, PENALTY_IDLE, PENALTY_WALL_COLLISION, REWARD_MOVE_TOWARDS_CIRCLE,
 				NEW_REWARD_DIRECT_HEADING, NEW_PENALTY_WRONG_HEADING, MAX_STEPS_WITHOUT_COLLECTION, PENALTY_NO_COLLECTION_SOON,
-				POPULATION_SIZE, ELITISM_COUNT, MUTATION_RATE, MUTATION_AMOUNT, AI_DECISION_INTERVAL,
-				initialEpsilon, finalEpsilon, showGhostIndividuals, FOCUS_CHANGE_THRESHOLD_FRAMES
+				POPULATION_SIZE, ELITISM_COUNT, SELECTION_METHOD, TOURNAMENT_SIZE, MUTATION_RATE, MUTATION_AMOUNT, AI_DECISION_INTERVAL,
+				initialEpsilon, finalEpsilon, epsilonDecayRate,
+				// MAX_GENERATIONS_WITHOUT_IMPROVEMENT, STAGNATION_ACTION_FACTOR, // Already commented out
+				showGhostIndividuals, FOCUS_CHANGE_THRESHOLD_FRAMES
 			});
+
+			updateTournamentSizeVisibility(); // Ensure UI consistency after applying settings
 
 			// No closeSettingsPanel() here, as it should remain open for further adjustments.
 			// Re-start training if it was running before applying settings
@@ -929,11 +1081,16 @@
 
 			POPULATION_SIZE = defaultSettings.POPULATION_SIZE;
 			ELITISM_COUNT = defaultSettings.ELITISM_COUNT;
+			SELECTION_METHOD = defaultSettings.SELECTION_METHOD;
+			TOURNAMENT_SIZE = defaultSettings.TOURNAMENT_SIZE;
 			MUTATION_RATE = defaultSettings.MUTATION_RATE;
 			MUTATION_AMOUNT = defaultSettings.MUTATION_AMOUNT;
 			AI_DECISION_INTERVAL = defaultSettings.AI_DECISION_INTERVAL;
 			initialEpsilon = defaultSettings.initialEpsilon;
 			finalEpsilon = defaultSettings.finalEpsilon;
+			epsilonDecayRate = defaultSettings.epsilonDecayRate;
+			// MAX_GENERATIONS_WITHOUT_IMPROVEMENT = defaultSettings.maxGenerationsWithoutImprovement; // Commented out
+			// STAGNATION_ACTION_FACTOR = defaultSettings.stagnationActionFactor; // Commented out
 			epsilon = initialEpsilon; // Reset epsilon
 
 			showGhostIndividuals = defaultSettings.showGhostIndividuals;
@@ -978,6 +1135,8 @@
 			currentIndividualIndex = 0;
 			currentStepInGeneration = 0;
 			overallBestScore = -Infinity;
+			// generationsSinceLastImprovement = 0; // Already commented out
+			// lastOverallBestScore = -Infinity; // Already commented out
 			currentFocusedIndividual = 0;
 			candidateForFocus = 0;
 			framesAsCandidate = 0;
@@ -987,6 +1146,9 @@
 			statusMessageSpan.textContent = "Paramètres réinitialisés aux valeurs par défaut. Prêt à lancer l'entraînement.";
 			statusMessageSpan.className = 'font-bold text-green-400';
 			console.log("Paramètres réinitialisés.");
+
+			updateTournamentSizeVisibility(); // Ensure UI consistency after resetting settings
+
 
 			// The panel will remain open if it was open, as applySettings no longer closes it.
 		}
@@ -1445,6 +1607,9 @@
 			}
 
 			overallBestScore = -Infinity;
+			// generationsSinceLastImprovement = 0; // Commented out
+			// lastOverallBestScore = -Infinity; // Commented out
+
 			if (!neuralNetworks || neuralNetworks.length !== POPULATION_SIZE) {
 				statusMessageSpan.textContent = "Erreur: Population de réseaux non (entièrement) initialisée.";
 				statusMessageSpan.className = 'font-bold text-red-400'; // Adjusted for dark theme
@@ -1548,6 +1713,18 @@
 			}
 			console.log(`[processEndOfGenEval] Final scores Gen. ${currentGeneration}: [${individualScores.map(s => s.toFixed(2)).join(', ')}]`);
 
+			// Stagnation detection (temporarily commented out)
+			// const currentMaxScoreThisGeneration = Math.max(...individualScores);
+			// if (currentMaxScoreThisGeneration > lastOverallBestScore) {
+			// 	lastOverallBestScore = currentMaxScoreThisGeneration;
+			// 	generationsSinceLastImprovement = 0;
+			// 	console.log(`[Stagnation] New best score this generation: ${lastOverallBestScore.toFixed(2)}. Reset stagnation counter.`);
+			// } else {
+			// 	generationsSinceLastImprovement++;
+			// 	console.log(`[Stagnation] No improvement for ${generationsSinceLastImprovement} generations. Current best: ${lastOverallBestScore.toFixed(2)}`);
+			// }
+
+
 			for (const score of individualScores) {
 				if (score > overallBestScore) {
 					overallBestScore = score;
@@ -1567,421 +1744,751 @@
 
 			let nextGenerationData = [];
 
+			// 1. Elitism: Preserve the best individuals
 			for (let i = 0; i < ELITISM_COUNT && i < scoredNetworks.length; i++) {
-				nextGenerationData.push({ json: scoredNetworks[i].networkJSON, wasMutated: false });
+				nextGenerationData.push({ json: scoredNetworks[i].networkJSON, wasMutated: false, parentScore: scoredNetworks[i].score });
+				console.log(`[Selection] Elite ${i}: Original Index ${scoredNetworks[i].index}, Score ${scoredNetworks[i].score.toFixed(2)}`);
 			}
 
 			let childrenNeeded = POPULATION_SIZE - nextGenerationData.length;
-			if (scoredNetworks.length > 0 && childrenNeeded > 0) {
-				const bestParentJSON = scoredNetworks[0].networkJSON;
-				for (let i = 0; i < childrenNeeded; i++) {
-					let parent2Index = (i % (Math.min(4, scoredNetworks.length - 1))) + 1;
-					if (parent2Index >= scoredNetworks.length || parent2Index === 0) {
-						parent2Index = (scoredNetworks.length > 1) ? 1 : 0;
+			let actualMutationRate = MUTATION_RATE;
+			let actualMutationAmount = MUTATION_AMOUNT;
+
+			// Stagnation action (temporarily commented out)
+			// if (generationsSinceLastImprovement >= MAX_GENERATIONS_WITHOUT_IMPROVEMENT) {
+			// 	console.log(`[Stagnation] Stagnation detected! Activating increased mutation for this generation.`);
+			// 	statusMessageSpan.textContent = "Stagnation détectée! Augmentation de la mutation.";
+			// 	statusMessageSpan.className = 'font-bold text-orange-400';
+			// 	actualMutationRate *= STAGNATION_ACTION_FACTOR;
+			// 	actualMutationAmount *= STAGNATION_ACTION_FACTOR;
+			// 	actualMutationRate = Math.min(actualMutationRate, 1.0);
+			// 	actualMutationAmount = Math.min(actualMutationAmount, 2.0);
+			// 	generationsSinceLastImprovement = 0;
+			// 	actualMutationAmount = Math.min(actualMutationAmount, 2.0);
+			// 	generationsSinceLastImprovement = 0;
+			// }
+
+			if (childrenNeeded > 0 && scoredNetworks.length > 0) {
+				if (SELECTION_METHOD === 'tournament') {
+					console.log(`[Selection] Using Tournament Selection. Tournament Size: ${TOURNAMENT_SIZE}, Children Needed: ${childrenNeeded}`);
+					if (scoredNetworks.length < TOURNAMENT_SIZE && scoredNetworks.length > 0) { // Check if there are any networks at all
+						console.warn(`[Selection] Not enough individuals (${scoredNetworks.length}) for configured tournament size (${TOURNAMENT_SIZE}). Using actual population size as tournament size.`);
+					} else if (scoredNetworks.length === 0) {
+						console.error("[Selection] FATAL: No scored networks available for tournament selection. Cannot proceed to create children.");
+						// This case should ideally not be reached if childrenNeeded > 0
 					}
-					if (scoredNetworks.length > 1 && parent2Index === 0 && scoredNetworks[0].index === scoredNetworks[parent2Index].index) parent2Index = 1;
 
-					const parent2JSON = scoredNetworks[parent2Index] ? scoredNetworks[parent2Index].networkJSON : bestParentJSON;
-					let childJson = crossover(bestParentJSON, parent2JSON);
-					let childMutationResult;
 
-					if (childJson) {
-						childMutationResult = mutate(childJson, MUTATION_RATE, MUTATION_AMOUNT);
-						nextGenerationData.push({ json: childMutationResult.mutatedJson, wasMutated: childMutationResult.didMutate });
+					for (let i = 0; i < childrenNeeded; i++) {
+						const parent1 = selectParentTournament(scoredNetworks, TOURNAMENT_SIZE);
+						const parent2 = selectParentTournament(scoredNetworks, TOURNAMENT_SIZE, parent1); // Try to select a different second parent
+
+						if (!parent1 || !parent2) {
+							console.warn("[Selection] Could not select two distinct parents via tournament. Using best available as fallback or duplicating parent1.");
+							const fallbackParent = parent1 || scoredNetworks[0]; // Use parent1 if available, else best overall
+							const parentToCrossWith = parent2 || fallbackParent; // Use parent2 if available, else fallbackParent (potentially parent1 again)
+
+							const childJson = crossover(fallbackParent.networkJSON, parentToCrossWith.networkJSON);
+							const childMutationResult = mutate(childJson, actualMutationRate, actualMutationAmount);
+							nextGenerationData.push({ json: childMutationResult.mutatedJson, wasMutated: childMutationResult.didMutate, parentScore: (fallbackParent.score + parentToCrossWith.score) / 2 });
+							continue;
+						}
+
+						console.log(`[Selection] Child ${i}: Parent 1 (Idx ${parent1.index}, Score ${parent1.score.toFixed(2)}), Parent 2 (Idx ${parent2.index}, Score ${parent2.score.toFixed(2)})`);
+
+						let childJson = crossover(parent1.networkJSON, parent2.networkJSON);
+						let childMutationResult;
+
+						if (childJson) {
+							childMutationResult = mutate(childJson, actualMutationRate, actualMutationAmount);
+							nextGenerationData.push({ json: childMutationResult.mutatedJson, wasMutated: childMutationResult.didMutate, parentScore: (parent1.score + parent2.score) / 2 });
+						} else {
+							console.warn("[Selection] Crossover returned null. Copying best of two parents (mutated).");
+							let fallbackChildJson = JSON.parse(JSON.stringify(parent1.score >= parent2.score ? parent1.networkJSON : parent2.networkJSON));
+							childMutationResult = mutate(fallbackChildJson, actualMutationRate, actualMutationAmount);
+							nextGenerationData.push({ json: childMutationResult.mutatedJson, wasMutated: childMutationResult.didMutate, parentScore: Math.max(parent1.score, parent2.score) });
+						}
+					}
+				} else { // Default to 'elitismPlusChampion' (original behavior)
+					console.log(`[Selection] Using Elitism + Champion Selection. Children Needed: ${childrenNeeded}`);
+					const bestParentJSON = scoredNetworks[0].networkJSON;
+					const bestParentScore = scoredNetworks[0].score;
+
+					for (let i = 0; i < childrenNeeded; i++) {
+						// Simple strategy: Crossover best with next few in line, or just best with best for simplicity if fewer parents
+						let parent2Index = (i % (Math.min(ELITISM_COUNT > 0 ? ELITISM_COUNT : 1, scoredNetworks.length - 1))) + (ELITISM_COUNT > 0 ? 0 : 1);
+						if (parent2Index >= scoredNetworks.length || parent2Index < 0) { // Ensure parent2Index is valid
+							parent2Index = (scoredNetworks.length > 1) ? 1 : 0; // Fallback to second best or best if only one
+						}
+						// Avoid best crossing with itself if possible and other elites exist
+						if (ELITISM_COUNT > 0 && parent2Index === 0 && scoredNetworks.length > 1) parent2Index = 1;
+
+
+						const parent2JSON = scoredNetworks[parent2Index] ? scoredNetworks[parent2Index].networkJSON : bestParentJSON;
+						const parent2Score = scoredNetworks[parent2Index] ? scoredNetworks[parent2Index].score : bestParentScore;
+
+						console.log(`[Selection] Child ${i}: Parent 1 (Idx ${scoredNetworks[0].index}, Score ${bestParentScore.toFixed(2)}), Parent 2 (Idx ${scoredNetworks[parent2Index] ? scoredNetworks[parent2Index].index : scoredNetworks[0].index}, Score ${parent2Score.toFixed(2)})`);
+
+						let childJson = crossover(bestParentJSON, parent2JSON);
+						let childMutationResult;
+
+						if (childJson) {
+							childMutationResult = mutate(childJson, actualMutationRate, actualMutationAmount);
+							nextGenerationData.push({ json: childMutationResult.mutatedJson, wasMutated: childMutationResult.didMutate, parentScore: (bestParentScore + parent2Score) / 2 });
+						} else {
+							console.warn("[Selection] Crossover returned null. Copying best parent (mutated).");
+							let fallbackChildJson = JSON.parse(JSON.stringify(bestParentJSON));
+							childMutationResult = mutate(fallbackChildJson, actualMutationRate, actualMutationAmount);
+							nextGenerationData.push({ json: childMutationResult.mutatedJson, wasMutated: childMutationResult.didMutate, parentScore: bestParentScore });
+						}
+					}
+					// } // End of original else for selection method
+					// }
+				}
+			}else if (childrenNeeded > 0) {
+					console.warn("[processEndOfGenEval] No valid networks for reproduction. Filling with new (untrained) networks.");
+					for (let i = 0; i < childrenNeeded; i++) {
+						const tempNet = new brain.NeuralNetwork({ hiddenLayers: [16, 16], activation: 'sigmoid' });
+						nextGenerationData.push({ json: tempNet.toJSON(), wasMutated: false, parentScore: -Infinity });
+					}
+				}
+
+				const newNeuralNetworks = [];
+				for (let i = 0; i < POPULATION_SIZE; i++) {
+					let networkDataEntry = nextGenerationData[i];
+					let netJSON;
+
+					if (!networkDataEntry || !networkDataEntry.json) {
+						console.warn(`[Population] No network data for individual ${i}, creating fallback.`);
+						const tempNetForFill = new brain.NeuralNetwork({ hiddenLayers: [16, 16], activation: 'sigmoid' });
+						netJSON = tempNetForFill.toJSON();
+						networkDataEntry = { json: netJSON, wasMutated: false, parentScore: -Infinity };
 					} else {
-						console.warn("[processEndOfGenEval] Crossover returned null, copying best parent (mutated).");
-						let fallbackChildJson = JSON.parse(JSON.stringify(bestParentJSON));
-						childMutationResult = mutate(fallbackChildJson, MUTATION_RATE, MUTATION_AMOUNT);
-						nextGenerationData.push({ json: childMutationResult.mutatedJson, wasMutated: childMutationResult.didMutate });
+						netJSON = networkDataEntry.json;
+					}
+
+					try {
+						const net = new window.brain.NeuralNetwork().fromJSON(netJSON);
+						net.wasMutatedThisGeneration = networkDataEntry.wasMutated;
+						net.parentScoreAtBirth = networkDataEntry.parentScore; // Store parent score for potential analysis
+
+						// Color assignment logic:
+						// Elites keep their original color from the 'scoredNetworks' mapping (if they were elites)
+						// Mutated children get a new random color.
+						// Non-mutated children might inherit or get a color based on their new position.
+						let assignedColor = individualColors[i % individualColors.length]; // Default color
+
+						if (i < ELITISM_COUNT && scoredNetworks[i]) { // Elite individual
+							const originalEliteIndex = scoredNetworks[i].index;
+							// Attempt to find original color if available on the saved network object
+							if (neuralNetworks[originalEliteIndex] && neuralNetworks[originalEliteIndex].colorDisplay) {
+								assignedColor = neuralNetworks[originalEliteIndex].colorDisplay;
+							} else {
+								assignedColor = individualColors[originalEliteIndex % individualColors.length]; // Fallback for elites
+							}
+							console.log(`[Population] Elite ${i} (orig Idx ${originalEliteIndex}) keeps color: ${assignedColor}`);
+						} else if (net.wasMutatedThisGeneration) {
+							let newColorIndex = Math.floor(Math.random() * individualColors.length);
+							// Try to ensure new color is different from default positional color, if possible
+							if (individualColors.length > 1 && newColorIndex === (i % individualColors.length)) {
+								newColorIndex = (newColorIndex + 1) % individualColors.length;
+							}
+							assignedColor = individualColors[newColorIndex];
+							console.log(`[Population] Mutated child ${i} gets new color: ${assignedColor}`);
+						} else {
+							// Non-mutated child, can get a standard color or a color derived from parents
+							// For now, use standard positional color
+							assignedColor = individualColors[i % individualColors.length];
+							console.log(`[Population] Non-mutated child ${i} gets standard color: ${assignedColor}`);
+						}
+						net.colorDisplay = assignedColor;
+						newNeuralNetworks.push(net);
+					} catch (e) {
+						console.error(`[Population] fromJSON error for individual ${i}, using fallback. Error:`, e, "JSON:", netJSON);
+						const fallbackNet = new window.brain.NeuralNetwork({ hiddenLayers: [16, 16], activation: 'sigmoid' });
+						fallbackNet.wasMutatedThisGeneration = false;
+						fallbackNet.parentScoreAtBirth = -Infinity;
+						fallbackNet.colorDisplay = individualColors[i % individualColors.length]; // Default color for fallback
+						newNeuralNetworks.push(fallbackNet);
 					}
 				}
-			} else if (childrenNeeded > 0) {
-				console.warn("[processEndOfGenEval] No valid networks for reproduction. Filling with new (untrained) networks.");
-				for (let i = 0; i < childrenNeeded; i++) {
-					const tempNet = new brain.NeuralNetwork({ hiddenLayers: [16, 16], activation: 'sigmoid' });
-					nextGenerationData.push({ json: tempNet.toJSON(), wasMutated: false });
+				neuralNetworks = newNeuralNetworks;
+
+				savePopulation();
+
+				currentGeneration++;
+				displayedIndividualIndex = 0; // Reset display index for the new generation
+
+				// Code original qui était à la fin de la fonction pour continuer ou arrêter l'entraînement
+				if (currentGeneration > MAX_WAVES) {
+					console.log("[processEndOfGenEval] Maximum number of generations reached.");
+					endTrainingSession(); // endTrainingSession s'occupera de masquer l'overlay au cas où.
+					return;
 				}
-			}
 
-			const newNeuralNetworks = [];
-			for (let i = 0; i < POPULATION_SIZE; i++) {
-				let networkDataEntry = nextGenerationData[i];
-				let netJSON;
+				isTraining = true; // S'assurer que cela est bien défini avant de continuer
 
-				if (!networkDataEntry || !networkDataEntry.json) {
+				console.log(`[processEndOfGenEval] Preparing Generation ${currentGeneration}. Displayed individual: 0(Champion)`);
+				// ... (le reste du code de préparation de la nouvelle génération qui était déjà là) ...
+				// initGame, epsilon update etc.
 
-					const tempNetForFill = new brain.NeuralNetwork({ hiddenLayers: [16, 16], activation: 'sigmoid' });
-					netJSON = tempNetForFill.toJSON();
-					networkDataEntry = { json: netJSON, wasMutated: false };
+				// Assurez-vous que toutes les initialisations sont faites avant de masquer complètement
+				// et de relancer. Le setTimeout englobe maintenant la reprise.
+
+				currentStepInGeneration = 0;
+				currentWaveScores = new Array(POPULATION_SIZE).fill(0);
+				for (let i = 0; i < POPULATION_SIZE; i++) {
+					populationTrainingData[i] = [];
+				}
+
+				generateCirclesForGeneration(INITIAL_CIRCLES);
+				for (let i = 0; i < POPULATION_SIZE; i++) {
+					initGame(i);
+				}
+
+				if (MAX_WAVES > 1) {
+					epsilon = initialEpsilon * Math.pow(epsilonDecayRate, currentGeneration - 1);
+					epsilon = Math.max(finalEpsilon, epsilon);
 				} else {
-					netJSON = networkDataEntry.json;
+					epsilon = finalEpsilon;
 				}
+				if (epsilonDisplay) epsilonDisplay.textContent = epsilon.toFixed(3);
 
-				try {
-					const net = new window.brain.NeuralNetwork().fromJSON(netJSON);
-					net.wasMutatedThisGeneration = networkDataEntry.wasMutated;
-
-					if (net.wasMutatedThisGeneration) {
-						let newColorIndex = Math.floor(Math.random() * individualColors.length);
-						if (individualColors.length > 1 && newColorIndex === (i % individualColors.length)) {
-							newColorIndex = (newColorIndex + 1) % individualColors.length;
-						}
-						net.colorDisplay = individualColors[newColorIndex];
-						console.log(`Individual ${i} mutated and receives new color: ${net.colorDisplay}`);
-					} else {
-						net.colorDisplay = individualColors[i % individualColors.length];
-					}
-					newNeuralNetworks.push(net);
-				} catch (e) {
-					console.error(`fromJSON error for individual ${i}, using fallback.`, e, netJSON);
-					const fallbackNet = new window.brain.NeuralNetwork({ hiddenLayers: [16, 16], activation: 'sigmoid' });
-					fallbackNet.wasMutatedThisGeneration = false;
-					fallbackNet.colorDisplay = individualColors[i % individualColors.length];
-					newNeuralNetworks.push(fallbackNet);
-				}
-			}
-			neuralNetworks = newNeuralNetworks;
-
-			savePopulation();
-
-			currentGeneration++;
-			displayedIndividualIndex = 0; // Reset display index for the new generation
-
-			// Code original qui était à la fin de la fonction pour continuer ou arrêter l'entraînement
-			if (currentGeneration > MAX_WAVES) {
-				console.log("[processEndOfGenEval] Maximum number of generations reached.");
-				endTrainingSession(); // endTrainingSession s'occupera de masquer l'overlay au cas où.
-				return;
-			}
-
-			isTraining = true; // S'assurer que cela est bien défini avant de continuer
-
-			console.log(`[processEndOfGenEval] Preparing Generation ${currentGeneration}. Displayed individual: 0(Champion)`);
-			// ... (le reste du code de préparation de la nouvelle génération qui était déjà là) ...
-			// initGame, epsilon update etc.
-
-			// Assurez-vous que toutes les initialisations sont faites avant de masquer complètement
-			// et de relancer. Le setTimeout englobe maintenant la reprise.
-
-			currentStepInGeneration = 0;
-			currentWaveScores = new Array(POPULATION_SIZE).fill(0);
-			for (let i = 0; i < POPULATION_SIZE; i++) {
-				populationTrainingData[i] = [];
-			}
-
-			generateCirclesForGeneration(INITIAL_CIRCLES);
-			for (let i = 0; i < POPULATION_SIZE; i++) {
-				initGame(i); // S'assurer que initGame est appelé avant de potentiellement dessiner
-			}
-
-			if (MAX_WAVES > 1) {
-				epsilon = Math.max(finalEpsilon, initialEpsilon - (initialEpsilon - finalEpsilon) * ((currentGeneration - 1) / (MAX_WAVES - 1)));
-			} else {
-				epsilon = finalEpsilon;
-			}
-			if (epsilonDisplay) epsilonDisplay.textContent = epsilon.toFixed(2);
-
-			// Reset progress bar for the new wave
-			if (waveProgressBar && waveProgressText) {
-				waveProgressBar.style.width = '0%';
-				waveProgressText.textContent = '0%';
-			}
-
-			runGenerationEvaluationStep();
-		}
-
-		function crossover(networkJSON1, networkJSON2) {
-			if (!networkJSON1 || !networkJSON2) {
-				console.error("Crossover: One or both parents are undefined.");
-				return networkJSON1 || networkJSON2 || null;
-			}
-
-			let childJSON = JSON.parse(JSON.stringify(networkJSON1));
-
-			for (let l = 1; l < childJSON.layers.length; l++) {
-				const layer1 = networkJSON1.layers[l];
-				const layer2 = networkJSON2.layers[l];
-				const childLayer = childJSON.layers[l];
-
-				if (!layer1 || !layer2 || !childLayer) {
-					continue;
-				}
-
-				if (childLayer.biases && layer1.biases && layer2.biases) {
-					if (Array.isArray(childLayer.biases)) {
-						for (let i = 0; i < childLayer.biases.length; i++) {
-							if (layer1.biases[i] !== undefined && layer2.biases[i] !== undefined) {
-								childLayer.biases[i] = (layer1.biases[i] + layer2.biases[i]) / 2;
-							}
-						}
-					} else {
-						for (const neuronIdx in childLayer.biases) {
-							if (layer1.biases.hasOwnProperty(neuronIdx) && layer2.biases.hasOwnProperty(neuronIdx)) {
-								childLayer.biases[neuronIdx] = (layer1.biases[neuronIdx] + layer2.biases[neuronIdx]) / 2;
-							}
-						}
-					}
-				}
-
-				if (childLayer.weights && layer1.weights && layer2.weights) {
-					if (Array.isArray(childLayer.weights)) {
-						for (let i = 0; i < childLayer.weights.length; i++) {
-							if (layer1.weights[i] && layer2.weights[i] && Array.isArray(childLayer.weights[i])) {
-								for (let j = 0; j < childLayer.weights[i].length; j++) { // MODIFIED: Fixed `layer.weights[i].length` -> `childLayer.weights[i].length`
-									if (layer1.weights[i][j] !== undefined && layer2.weights[i][j] !== undefined) {
-										childLayer.weights[i][j] = (layer1.weights[i][j] + layer2.weights[i][j]) / 2;
-									}
-								}
-							}
-						}
-					} else {
-						for (const neuronIdx in layer.weights) {
-							if (layer1.weights.hasOwnProperty(neuronIdx) && layer2.weights.hasOwnProperty(neuronIdx) &&
-								Array.isArray(layer.weights[neuronIdx])) {
-								const weights1 = layer1.weights[neuronIdx];
-								const weights2 = layer2.weights[neuronIdx];
-								const childWeightsNeuron = layer.weights[neuronIdx];
-								for (let j = 0; j < childWeightsNeuron.length; j++) {
-									if (weights1[j] !== undefined && weights2[j] !== undefined) {
-										childWeightsNeuron[j] = (weights1[j] + weights2[j]) / 2;
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-			return childJSON;
-		}
-
-		function mutate(networkJSON, rate, amount) {
-			if (!networkJSON || !networkJSON.layers) {
-				console.error("Mutate: networkJSON undefined or without layers.");
-				return { mutatedJson: networkJSON, didMutate: false };
-			}
-
-			let actualMutationOccurred = false;
-
-			for (let l = 1; l < networkJSON.layers.length; l++) {
-				const layer = networkJSON.layers[l];
-				if (!layer) continue;
-
-				if (layer.biases) {
-					if (Array.isArray(layer.biases)) {
-						for (let i = 0; i < layer.biases.length; i++) {
-							if (Math.random() < rate) {
-								layer.biases[i] += (Math.random() * 2 - 1) * amount;
-								actualMutationOccurred = true;
-							}
-						}
-					} else {
-						for (const neuronIdx in layer.biases) {
-							if (layer.biases.hasOwnProperty(neuronIdx)) {
-								if (Math.random() < rate) {
-									layer.biases[neuronIdx] += (Math.random() * 2 - 1) * amount;
-									actualMutationOccurred = true;
-								}
-							}
-						}
-					}
-				}
-
-				if (layer.weights) {
-					if (Array.isArray(layer.weights)) {
-						for (let i = 0; i < layer.weights.length; i++) {
-							if (layer.weights[i] && Array.isArray(layer.weights[i])) {
-								for (let j = 0; j < layer.weights[i].length; j++) {
-									if (Math.random() < rate) {
-										layer.weights[i][j] += (Math.random() * 2 - 1) * amount;
-										actualMutationOccurred = true;
-									}
-								}
-							}
-						}
-					} else {
-						for (const neuronIdx in layer.weights) {
-							if (layer.weights.hasOwnProperty(neuronIdx) && Array.isArray(layer.weights[neuronIdx])) {
-								const weightsNeuron = layer.weights[neuronIdx];
-								for (let j = 0; j < weightsNeuron.length; j++) {
-									if (Math.random() < rate) {
-										weightsNeuron[j] += (Math.random() * 2 - 1) * amount;
-										actualMutationOccurred = true;
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-			return { mutatedJson: networkJSON, didMutate: actualMutationOccurred };
-		}
-
-		function endTrainingSession() {
-			isTraining = false;
-			if (statusMessageSpan) {
-				statusMessageSpan.textContent = "Entraînement terminé ! (Max Générations)";
-				statusMessageSpan.className = 'font-bold text-green-400'; // Adjusted for dark theme
-			}
-			if (startButton) {
-				startButton.textContent = "Lancer l'entraînement";
-				// Changed classes for start state
-				startButton.classList.remove('bg-red-600', 'hover:bg-red-700', 'focus:ring-red-500');
-				startButton.classList.add('bg-blue-600', 'hover:bg-blue-700', 'focus:ring-blue-500');
-			}
-			if (settingsButton) { // MODIFIED: Enable settings button
-				settingsButton.disabled = false;
-				settingsButton.classList.remove('opacity-50', 'cursor-not-allowed');
-			}
-			if (downloadJsonButton) { // MODIFIED: Enable download button at end of training
-				downloadJsonButton.disabled = false;
-				downloadJsonButton.classList.remove('opacity-50', 'cursor-not-allowed');
-			}
-
-			// Removed automatic download logic here, moved to button click listener.
-			updateUI(); // Ensure UI is updated one last time
-		}
-
-		function updateUI(individualIndexToDisplay = displayedIndividualIndex) {
-			// If showGhostIndividuals is true, we want to display the score of the focused individual
-			// Otherwise, we display the score of the initially displayed individual (usually index 0)
-			const displayIdx = showGhostIndividuals ? currentFocusedIndividual : individualIndexToDisplay;
-
-			if (currentWaveScores && currentWaveScores.length > displayIdx) {
-				currentScoreSpan.textContent = currentWaveScores[displayIdx].toFixed(0);
-			} else {
-				currentScoreSpan.textContent = "0";
-			}
-
-			waveNumberSpan.textContent = currentGeneration;
-			epsilonDisplay.textContent = epsilon.toFixed(2);
-
-			if (isTraining) {
-				statusMessageSpan.textContent = `Meilleur Score Global: ${overallBestScore.toFixed(2)} `;
-				// Adjusted status message colors
-				if (overallBestScore >= 0) {
-					statusMessageSpan.className = 'font-bold text-green-400';
-				} else {
-					statusMessageSpan.className = 'font-bold text-orange-400';
-				}
-
-				// Update progress bar
-				if (waveProgressBar && waveProgressText && STEPS_PER_GENERATION_EVALUATION > 0) {
-					const progress = (currentStepInGeneration / STEPS_PER_GENERATION_EVALUATION) * 100;
-					waveProgressBar.style.width = `${progress.toFixed(0)}%`;
-					waveProgressText.textContent = `${progress.toFixed(0)}%`;
-				}
-			} else {
-				// Reset progress bar if not training
 				if (waveProgressBar && waveProgressText) {
 					waveProgressBar.style.width = '0%';
 					waveProgressText.textContent = '0%';
 				}
-			}
-		}
 
-		function savePopulation() {
-			if (neuralNetworks.length === 0) return;
-			try {
-				const populationJson = neuralNetworks.map(net => {
-					if (net && typeof net.toJSON === 'function') {
-						return net.toJSON();
-					}
-					console.warn("[savePopulation] A network in the population could not be converted to JSON or is undefined.");
+				runGenerationEvaluationStep();
+			}
+
+
+			function selectParentTournament(scoredNetworks, tournamentSizeParam, excludeParent = null) {
+				if (!scoredNetworks || scoredNetworks.length === 0) {
+					console.warn("[Tournament] No networks to select from.");
 					return null;
-				}).filter(json => json !== null);
-
-				if (populationJson.length > 0) {
-					localStorage.setItem('populationNeuralNetworkWeights_v1', JSON.stringify(populationJson));
-					console.log("Neural network population weights saved.");
-				} else {
-					console.warn("[savePopulation] No valid networks to save in the population.");
 				}
-			} catch (error) {
-				console.error("Error saving neural network population:", error);
-			}
-		}
 
-		async function loadNeuralNetwork() {
-			const savedPopulationWeights = localStorage.getItem('populationNeuralNetworkWeights_v1');
-			if (savedPopulationWeights) {
+				// Ensure tournamentSizeParam is at least 1 and not greater than the number of available networks
+				const numAvailableNetworks = scoredNetworks.length - (excludeParent ? 1 : 0);
+				const actualTournamentSize = Math.max(1, Math.min(tournamentSizeParam, numAvailableNetworks));
+
+				if (actualTournamentSize <= 0 && numAvailableNetworks > 0) { // Should not happen if numAvailableNetworks > 0 due to Math.max(1,...)
+					console.warn("[Tournament] Calculated tournament size is zero or negative, but networks are available. Defaulting to 1.");
+					// This case implies a logic flaw if reached, but we make it robust.
+					// If excludeParent is the only one, numAvailableNetworks could be 0.
+				} else if (numAvailableNetworks === 0) {
+					console.warn("[Tournament] No networks available for selection after exclusion (or empty initial list).");
+					return null; // Or return scoredNetworks[0] if excludeParent was the only one and we allow it
+				}
+
+
+				let tournamentContestants = [];
+				let availableNetworks = [...scoredNetworks];
+
+				// If an excludeParent is provided, filter it out from the available pool for this selection
+				if (excludeParent && excludeParent.networkJSON) {
+					const excludeIndex = availableNetworks.findIndex(net => net.index === excludeParent.index);
+					if (excludeIndex > -1) {
+						availableNetworks.splice(excludeIndex, 1);
+					}
+				}
+
+				// If after exclusion, not enough for tournament, use all available
+				const finalTournamentSizeForLoop = Math.min(actualTournamentSize, availableNetworks.length);
+
+				if (finalTournamentSizeForLoop === 0 && availableNetworks.length > 0) { // Should ideally not happen if availableNetworks.length > 0
+					tournamentContestants.push(availableNetworks[0]); // Take the best if calculation is off
+				} else if (availableNetworks.length === 0) {
+					console.warn("[Tournament] No networks left after potential exclusion for tournament contestants loop.");
+					return scoredNetworks[0] || null; // Fallback to overall best if nothing else.
+				}
+
+
+				for (let i = 0; i < finalTournamentSizeForLoop; i++) {
+					if (availableNetworks.length === 0) break;
+					const randomIndex = Math.floor(Math.random() * availableNetworks.length);
+					tournamentContestants.push(availableNetworks[randomIndex]);
+					availableNetworks.splice(randomIndex, 1);
+				}
+
+				if (tournamentContestants.length === 0) {
+					console.warn("[Tournament] No contestants selected. Returning best available from original list or null.");
+					return scoredNetworks[0] || null;
+				}
+
+				tournamentContestants.sort((a, b) => b.score - a.score);
+				return tournamentContestants[0];
+			}
+
+
+
+			function crossover(networkJSON1, networkJSON2) {
+				if (!networkJSON1 || !networkJSON2) {
+					console.error("Crossover: One or both parents are undefined.");
+					return networkJSON1 || networkJSON2 || null;
+				}
+
+				let childJSON = JSON.parse(JSON.stringify(networkJSON1));
+
+				for (let l = 1; l < childJSON.layers.length; l++) {
+					const layer1 = networkJSON1.layers[l];
+					const layer2 = networkJSON2.layers[l];
+					const childLayer = childJSON.layers[l];
+
+					if (!layer1 || !layer2 || !childLayer) {
+						continue;
+					}
+
+					if (childLayer.biases && layer1.biases && layer2.biases) {
+						if (Array.isArray(childLayer.biases)) {
+							for (let i = 0; i < childLayer.biases.length; i++) {
+								if (layer1.biases[i] !== undefined && layer2.biases[i] !== undefined) {
+									childLayer.biases[i] = (layer1.biases[i] + layer2.biases[i]) / 2;
+								}
+							}
+						} else {
+							for (const neuronIdx in childLayer.biases) {
+								if (layer1.biases.hasOwnProperty(neuronIdx) && layer2.biases.hasOwnProperty(neuronIdx)) {
+									childLayer.biases[neuronIdx] = (layer1.biases[neuronIdx] + layer2.biases[neuronIdx]) / 2;
+								}
+							}
+						}
+					}
+
+					if (childLayer.weights && layer1.weights && layer2.weights) {
+						if (Array.isArray(childLayer.weights)) {
+							for (let i = 0; i < childLayer.weights.length; i++) {
+								if (layer1.weights[i] && layer2.weights[i] && Array.isArray(childLayer.weights[i])) {
+									for (let j = 0; j < childLayer.weights[i].length; j++) { // MODIFIED: Fixed `layer.weights[i].length` -> `childLayer.weights[i].length`
+										if (layer1.weights[i][j] !== undefined && layer2.weights[i][j] !== undefined) {
+											childLayer.weights[i][j] = (layer1.weights[i][j] + layer2.weights[i][j]) / 2;
+										}
+									}
+								}
+							}
+						} else {
+							for (const neuronIdx in layer.weights) {
+								if (layer1.weights.hasOwnProperty(neuronIdx) && layer2.weights.hasOwnProperty(neuronIdx) &&
+									Array.isArray(layer.weights[neuronIdx])) {
+									const weights1 = layer1.weights[neuronIdx];
+									const weights2 = layer2.weights[neuronIdx];
+									const childWeightsNeuron = layer.weights[neuronIdx];
+									for (let j = 0; j < childWeightsNeuron.length; j++) {
+										if (weights1[j] !== undefined && weights2[j] !== undefined) {
+											childWeightsNeuron[j] = (weights1[j] + weights2[j]) / 2;
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				return childJSON;
+			}
+
+			function mutate(networkJSON, rate, amount) {
+				if (!networkJSON || !networkJSON.layers) {
+					console.error("Mutate: networkJSON undefined or without layers.");
+					return { mutatedJson: networkJSON, didMutate: false };
+				}
+
+				let actualMutationOccurred = false;
+
+				for (let l = 1; l < networkJSON.layers.length; l++) {
+					const layer = networkJSON.layers[l];
+					if (!layer) continue;
+
+					if (layer.biases) {
+						if (Array.isArray(layer.biases)) {
+							for (let i = 0; i < layer.biases.length; i++) {
+								if (Math.random() < rate) {
+									layer.biases[i] += (Math.random() * 2 - 1) * amount;
+									actualMutationOccurred = true;
+								}
+							}
+						} else {
+							for (const neuronIdx in layer.biases) {
+								if (layer.biases.hasOwnProperty(neuronIdx)) {
+									if (Math.random() < rate) {
+										layer.biases[neuronIdx] += (Math.random() * 2 - 1) * amount;
+										actualMutationOccurred = true;
+									}
+								}
+							}
+						}
+					}
+
+					if (layer.weights) {
+						if (Array.isArray(layer.weights)) {
+							for (let i = 0; i < layer.weights.length; i++) {
+								if (layer.weights[i] && Array.isArray(layer.weights[i])) {
+									for (let j = 0; j < layer.weights[i].length; j++) {
+										if (Math.random() < rate) {
+											layer.weights[i][j] += (Math.random() * 2 - 1) * amount;
+											actualMutationOccurred = true;
+										}
+									}
+								}
+							}
+						} else {
+							for (const neuronIdx in layer.weights) {
+								if (layer.weights.hasOwnProperty(neuronIdx) && Array.isArray(layer.weights[neuronIdx])) {
+									const weightsNeuron = layer.weights[neuronIdx];
+									for (let j = 0; j < weightsNeuron.length; j++) {
+										if (Math.random() < rate) {
+											weightsNeuron[j] += (Math.random() * 2 - 1) * amount;
+											actualMutationOccurred = true;
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				return { mutatedJson: networkJSON, didMutate: actualMutationOccurred };
+			}
+
+			function endTrainingSession() {
+				isTraining = false;
+				if (statusMessageSpan) {
+					statusMessageSpan.textContent = "Entraînement terminé ! (Max Générations)";
+					statusMessageSpan.className = 'font-bold text-green-400'; // Adjusted for dark theme
+				}
+				if (startButton) {
+					startButton.textContent = "Lancer l'entraînement";
+					// Changed classes for start state
+					startButton.classList.remove('bg-red-600', 'hover:bg-red-700', 'focus:ring-red-500');
+					startButton.classList.add('bg-blue-600', 'hover:bg-blue-700', 'focus:ring-blue-500');
+				}
+				if (settingsButton) { // MODIFIED: Enable settings button
+					settingsButton.disabled = false;
+					settingsButton.classList.remove('opacity-50', 'cursor-not-allowed');
+				}
+				if (downloadJsonButton) { // MODIFIED: Enable download button at end of training
+					downloadJsonButton.disabled = false;
+					downloadJsonButton.classList.remove('opacity-50', 'cursor-not-allowed');
+				}
+
+				// Removed automatic download logic here, moved to button click listener.
+				updateUI(); // Ensure UI is updated one last time
+			}
+
+			function updateUI(individualIndexToDisplay = displayedIndividualIndex) {
+				// If showGhostIndividuals is true, we want to display the score of the focused individual
+				// Otherwise, we display the score of the initially displayed individual (usually index 0)
+				const displayIdx = showGhostIndividuals ? currentFocusedIndividual : individualIndexToDisplay;
+
+				if (currentWaveScores && currentWaveScores.length > displayIdx) {
+					currentScoreSpan.textContent = currentWaveScores[displayIdx].toFixed(0);
+				} else {
+					currentScoreSpan.textContent = "0";
+				}
+
+				waveNumberSpan.textContent = currentGeneration;
+				epsilonDisplay.textContent = epsilon.toFixed(3); // Afficher avec plus de précision
+
+				if (isTraining) {
+					statusMessageSpan.textContent = `Meilleur Score Global: ${overallBestScore.toFixed(2)} `;
+					// Adjusted status message colors
+					if (overallBestScore >= 0) {
+						statusMessageSpan.className = 'font-bold text-green-400';
+					} else {
+						statusMessageSpan.className = 'font-bold text-orange-400';
+					}
+
+					// Update progress bar
+					if (waveProgressBar && waveProgressText && STEPS_PER_GENERATION_EVALUATION > 0) {
+						const progress = (currentStepInGeneration / STEPS_PER_GENERATION_EVALUATION) * 100;
+						waveProgressBar.style.width = `${progress.toFixed(0)}%`;
+						waveProgressText.textContent = `${progress.toFixed(0)}%`;
+					}
+				} else {
+					// Reset progress bar if not training
+					if (waveProgressBar && waveProgressText) {
+						waveProgressBar.style.width = '0%';
+						waveProgressText.textContent = '0%';
+					}
+				}
+			}
+
+			function saveSettingsToFile() {
+				const settings = {
+					GAME_WIDTH: parseInt(document.getElementById('gameSizeInput').value),
+					GAME_HEIGHT: parseInt(document.getElementById('gameSizeInput').value), // Same as width
+					SQUARE_SIZE: parseInt(document.getElementById('squareSizeInput').value),
+					CIRCLE_RADIUS: parseInt(document.getElementById('circleRadiusInput').value),
+					INITIAL_CIRCLES: parseInt(document.getElementById('initialCirclesInput').value),
+					WAVE_DURATION: parseInt(document.getElementById('waveDurationInput').value),
+					MAX_WAVES: parseInt(document.getElementById('maxWavesInput').value),
+
+					REWARD_COLLECT_CIRCLE: parseFloat(document.getElementById('rewardCollectCircleInput').value),
+					PENALTY_IDLE: parseFloat(document.getElementById('penaltyIdleInput').value),
+					PENALTY_WALL_COLLISION: parseFloat(document.getElementById('penaltyWallCollisionInput').value),
+					REWARD_MOVE_TOWARDS_CIRCLE: parseFloat(document.getElementById('rewardMoveTowardsCircleInput').value),
+					NEW_REWARD_DIRECT_HEADING: parseFloat(document.getElementById('newRewardDirectHeadingInput').value),
+					NEW_PENALTY_WRONG_HEADING: parseFloat(document.getElementById('newPenaltyWrongHeadingInput').value),
+					MAX_STEPS_WITHOUT_COLLECTION: parseInt(document.getElementById('maxStepsWithoutCollectionInput').value),
+					PENALTY_NO_COLLECTION_SOON: parseFloat(document.getElementById('penaltyNoCollectionSoonInput').value),
+
+					POPULATION_SIZE: parseInt(document.getElementById('populationSizeInput').value),
+					ELITISM_COUNT: parseInt(document.getElementById('elitismCountInput').value),
+					selectionMethod: document.getElementById('selectionMethodInput').value, // MODIFIED KEY
+					tournamentSize: parseInt(document.getElementById('tournamentSizeInput').value),   // MODIFIED KEY
+					MUTATION_RATE: parseFloat(document.getElementById('mutationRateInput').value),
+					MUTATION_AMOUNT: parseFloat(document.getElementById('mutationAmountInput').value),
+					AI_DECISION_INTERVAL: parseInt(document.getElementById('aiDecisionIntervalInput').value),
+					initialEpsilon: parseFloat(document.getElementById('epsilonInitialInput').value),
+					finalEpsilon: parseFloat(document.getElementById('epsilonFinalInput').value),
+					epsilonDecayRate: parseFloat(document.getElementById('epsilonDecayRateInput').value),
+					// maxGenerationsWithoutImprovement: parseInt(document.getElementById('maxGenerationsWithoutImprovementInput').value), // Commented out
+					// stagnationActionFactor: parseFloat(document.getElementById('stagnationActionFactorInput').value), // Commented out
+
+
+					showGhostIndividuals: document.getElementById('showGhostIndividualsInput').checked,
+					FOCUS_CHANGE_THRESHOLD_FRAMES: parseInt(document.getElementById('focusChangeThresholdFramesInput').value)
+				};
+
 				try {
-					const populationJson = JSON.parse(savedPopulationWeights);
-					if (!window.brain || !window.brain.NeuralNetwork) {
-						console.error("Brain.js is not available to load networks.");
-						await createNewNeuralNetwork();
+					const jsonString = JSON.stringify(settings, null, 2);
+					const blob = new Blob([jsonString], { type: "application/json" });
+					const url = URL.createObjectURL(blob);
+					const a = document.createElement('a');
+					a.href = url;
+					a.download = 'neural_trainer_settings.json';
+					document.body.appendChild(a);
+					a.click();
+					document.body.removeChild(a);
+					URL.revokeObjectURL(url);
+					statusMessageSpan.textContent = "Paramètres sauvegardés dans neural_trainer_settings.json";
+					statusMessageSpan.className = 'font-bold text-green-400';
+				} catch (error) {
+					console.error("Erreur lors de la sauvegarde des paramètres:", error);
+					statusMessageSpan.textContent = "Erreur lors de la sauvegarde des paramètres.";
+					statusMessageSpan.className = 'font-bold text-red-400';
+				}
+			}
+
+			function triggerLoadSettings() {
+				document.getElementById('loadSettingsFile').click();
+			}
+
+			function loadSettingsFromFile(event) {
+				const file = event.target.files[0];
+				if (!file) {
+					return;
+				}
+
+				const reader = new FileReader();
+				reader.onload = (e) => {
+					let loadedSettings;
+					try {
+						loadedSettings = JSON.parse(e.target.result);
+					} catch (error) {
+						console.error("Erreur de parsing du JSON des paramètres:", error);
+						statusMessageSpan.textContent = "Erreur: Fichier de paramètres JSON invalide.";
+						statusMessageSpan.className = 'font-bold text-red-400';
 						return;
 					}
-					if (Array.isArray(populationJson) && populationJson.length === POPULATION_SIZE) {
-						neuralNetworks = [];
-						for (let i = 0; i < POPULATION_SIZE; i++) {
-							const net = new window.brain.NeuralNetwork().fromJSON(populationJson[i]);
-							net.colorDisplay = individualColors[i % individualColors.length];
-							neuralNetworks.push(net);
+
+					// --- Début de la section à remplacer/vérifier ---
+					console.log("Applying loaded settings to form fields...");
+
+					function setFieldValue(id, value, isCheckbox = false, isRange = false, rangeValueSpanId = null) {
+						const element = document.getElementById(id);
+						if (element) {
+							if (isCheckbox) {
+								element.checked = value;
+								// console.log(`Set checkbox ${id} to ${value}`);
+							} else {
+								element.value = value;
+								// console.log(`Set field ${id} to ${value}`);
+							}
+							if (isRange && rangeValueSpanId) {
+								const spanElement = document.getElementById(rangeValueSpanId);
+								if (spanElement) {
+									if (id === 'epsilonFinalInput' || id === 'epsilonDecayRateInput' || id === 'stagnationActionFactorInput') {
+										spanElement.textContent = parseFloat(value).toFixed(3);
+									} else if (id === 'gameSizeInput') {
+										spanElement.textContent = `${value}x${value}`;
+									}
+									else {
+										spanElement.textContent = parseFloat(value).toFixed(2);
+									}
+								} else {
+									console.warn(`Range value span element with ID "${rangeValueSpanId}" not found for ${id}.`);
+								}
+							}
+						} else {
+							console.warn(`Element with ID "${id}" not found.`);
 						}
-						console.log(`${POPULATION_SIZE} neural networks loaded from localStorage.`);
-						if (statusMessageSpan) statusMessageSpan.textContent = "Prêt (Population chargée)";
-						return;
+					}
+
+					// Game Parameters
+					setFieldValue('gameSizeInput', loadedSettings.GAME_WIDTH, false, true, 'gameSizeValue');
+					// Note: GAME_HEIGHT est implicitement géré par gameSizeInput et applySettings
+					setFieldValue('squareSizeInput', loadedSettings.SQUARE_SIZE);
+					setFieldValue('circleRadiusInput', loadedSettings.CIRCLE_RADIUS);
+					setFieldValue('initialCirclesInput', loadedSettings.INITIAL_CIRCLES);
+					setFieldValue('waveDurationInput', loadedSettings.WAVE_DURATION);
+					setFieldValue('maxWavesInput', loadedSettings.MAX_WAVES);
+
+					// Rewards & Penalties
+					setFieldValue('rewardCollectCircleInput', loadedSettings.REWARD_COLLECT_CIRCLE);
+					setFieldValue('penaltyIdleInput', loadedSettings.PENALTY_IDLE);
+					setFieldValue('penaltyWallCollisionInput', loadedSettings.PENALTY_WALL_COLLISION);
+					setFieldValue('rewardMoveTowardsCircleInput', loadedSettings.REWARD_MOVE_TOWARDS_CIRCLE);
+					setFieldValue('newRewardDirectHeadingInput', loadedSettings.NEW_REWARD_DIRECT_HEADING);
+					setFieldValue('newPenaltyWrongHeadingInput', loadedSettings.NEW_PENALTY_WRONG_HEADING);
+					setFieldValue('maxStepsWithoutCollectionInput', loadedSettings.MAX_STEPS_WITHOUT_COLLECTION);
+					setFieldValue('penaltyNoCollectionSoonInput', loadedSettings.PENALTY_NO_COLLECTION_SOON);
+
+					// Genetic Algorithm Parameters
+					setFieldValue('populationSizeInput', loadedSettings.POPULATION_SIZE);
+					setFieldValue('elitismCountInput', loadedSettings.ELITISM_COUNT);
+					setFieldValue('selectionMethodInput', loadedSettings.selectionMethod); // MODIFIED KEY
+					setFieldValue('tournamentSizeInput', loadedSettings.tournamentSize);   // MODIFIED KEY
+					// Visibility is handled by applySettings calling updateTournamentSizeVisibility
+
+					setFieldValue('mutationRateInput', loadedSettings.MUTATION_RATE, false, true, 'mutationRateValue');
+					setFieldValue('mutationAmountInput', loadedSettings.MUTATION_AMOUNT, false, true, 'mutationAmountValue');
+					setFieldValue('aiDecisionIntervalInput', loadedSettings.AI_DECISION_INTERVAL);
+					setFieldValue('epsilonInitialInput', loadedSettings.initialEpsilon, false, true, 'epsilonInitialValue');
+					setFieldValue('epsilonFinalInput', loadedSettings.epsilonFinal, false, true, 'epsilonFinalValue');
+					setFieldValue('epsilonDecayRateInput', loadedSettings.epsilonDecayRate, false, true, 'epsilonDecayRateValue');
+					// setFieldValue('maxGenerationsWithoutImprovementInput', loadedSettings.maxGenerationsWithoutImprovement); // Commented out
+					// setFieldValue('stagnationActionFactorInput', loadedSettings.stagnationActionFactor, false, true, 'stagnationActionFactorValue'); // Commented out
+
+
+					// Display & UI
+					setFieldValue('showGhostIndividualsInput', loadedSettings.showGhostIndividuals, true);
+					setFieldValue('focusChangeThresholdFramesInput', loadedSettings.FOCUS_CHANGE_THRESHOLD_FRAMES);
+
+					console.log("Form fields update attempt complete.");
+					// --- Fin de la section à remplacer/vérifier ---
+
+					applySettings();
+					console.log("applySettings() called after attempting to update form fields.");
+
+
+					statusMessageSpan.textContent = "Paramètres chargés avec succès depuis le fichier.";
+					statusMessageSpan.className = 'font-bold text-green-400';
+					event.target.value = null; // Reset file input
+				};
+
+				reader.onerror = () => {
+					console.error("Erreur de lecture du fichier de paramètres.");
+					statusMessageSpan.textContent = "Erreur de lecture du fichier.";
+					statusMessageSpan.className = 'font-bold text-red-400';
+				};
+
+				reader.readAsText(file);
+			}
+
+
+			function savePopulation() {
+				if (neuralNetworks.length === 0) return;
+				try {
+					const populationJson = neuralNetworks.map(net => {
+						if (net && typeof net.toJSON === 'function') {
+							return net.toJSON();
+						}
+						console.warn("[savePopulation] A network in the population could not be converted to JSON or is undefined.");
+						return null;
+					}).filter(json => json !== null);
+
+					if (populationJson.length > 0) {
+						localStorage.setItem('populationNeuralNetworkWeights_v1', JSON.stringify(populationJson));
+						console.log("Neural network population weights saved.");
 					} else {
-						console.log("Données de population sauvegardées non valides ou taille incorrecte. Création de nouveaux réseaux.");
+						console.warn("[savePopulation] No valid networks to save in the population.");
 					}
 				} catch (error) {
-					console.error("Erreur lors du chargement des poids de la population:", error);
-				}
-			}
-			await createNewNeuralNetwork();
-		}
-
-		async function createNewNeuralNetwork() {
-			if (!window.brain || !window.brain.NeuralNetwork) {
-				console.error("Brain.js is not available to create new networks.");
-				statusMessageSpan.textContent = "Erreur: Brain.js manquant.";
-				if (startButton) startButton.disabled = true;
-				return;
-			}
-			neuralNetworks = [];
-			let allInitialized = true;
-			console.log(`[createNewNeuralNetwork] Initializing ${POPULATION_SIZE} new networks.`);
-			for (let i = 0; i < POPULATION_SIZE; i++) {
-				const net = new window.brain.NeuralNetwork({
-					hiddenLayers: [16, 16],
-					activation: 'sigmoid',
-				});
-
-				try {
-					const dummyInput = {
-						squareX: 0.5, squareY: 0.5, closestCircleX: 0.5, closestCircleY: 0.5,
-						distanceToClosestCircle: 0.5, distanceToLeftWall: 0.5, distanceToRightWall: 0.5,
-						distanceToTopWall: 0.5, distanceToBottomWall: 0.5
-					};
-					const dummyOutput = { idle: 0, up: 0, down: 0, left: 0, right: 0 };
-					OUTPUT_ACTIONS.forEach(action => dummyOutput[action] = 0);
-					dummyOutput["idle"] = 1;
-
-					await net.train([{ input: dummyInput, output: dummyOutput }], {
-						iterations: 1, errorThresh: 0.9, log: false, learningRate: 0.01, timeout: 100
-					});
-					net.colorDisplay = individualColors[i % individualColors.length];
-					neuralNetworks.push(net);
-				} catch (e) {
-					console.error(`Error during initial dummy training for network ${i}: `, e);
-					allInitialized = false;
-					break;
+					console.error("Error saving neural network population:", error);
 				}
 			}
 
-			if (allInitialized && neuralNetworks.length === POPULATION_SIZE) {
-				console.log(`${POPULATION_SIZE} new neural networks created and initialized.`);
-				if (statusMessageSpan) statusMessageSpan.textContent = "Prêt (Nouvelle population de réseaux)";
-			} else {
+			async function loadNeuralNetwork() {
+				const savedPopulationWeights = localStorage.getItem('populationNeuralNetworkWeights_v1');
+				if (savedPopulationWeights) {
+					try {
+						const populationJson = JSON.parse(savedPopulationWeights);
+						if (!window.brain || !window.brain.NeuralNetwork) {
+							console.error("Brain.js is not available to load networks.");
+							await createNewNeuralNetwork();
+							return;
+						}
+						if (Array.isArray(populationJson) && populationJson.length === POPULATION_SIZE) {
+							neuralNetworks = [];
+							for (let i = 0; i < POPULATION_SIZE; i++) {
+								const net = new window.brain.NeuralNetwork().fromJSON(populationJson[i]);
+								net.colorDisplay = individualColors[i % individualColors.length];
+								neuralNetworks.push(net);
+							}
+							console.log(`${POPULATION_SIZE} neural networks loaded from localStorage.`);
+							if (statusMessageSpan) statusMessageSpan.textContent = "Prêt (Population chargée)";
+							return;
+						} else {
+							console.log("Données de population sauvegardées non valides ou taille incorrecte. Création de nouveaux réseaux.");
+						}
+					} catch (error) {
+						console.error("Erreur lors du chargement des poids de la population:", error);
+					}
+				}
+				await createNewNeuralNetwork();
+			}
+
+			async function createNewNeuralNetwork() {
+				if (!window.brain || !window.brain.NeuralNetwork) {
+					console.error("Brain.js is not available to create new networks.");
+					statusMessageSpan.textContent = "Erreur: Brain.js manquant.";
+					if (startButton) startButton.disabled = true;
+					return;
+				}
 				neuralNetworks = [];
-				if (statusMessageSpan) {
-					statusMessageSpan.textContent = "Erreur d'initialisation de la population.";
-					statusMessageSpan.classList.remove('text-yellow-400'); // Adjusted for dark theme
-					statusMessageSpan.classList.add('text-red-400'); // Adjusted for dark theme
+				let allInitialized = true;
+				console.log(`[createNewNeuralNetwork] Initializing ${POPULATION_SIZE} new networks.`);
+				for (let i = 0; i < POPULATION_SIZE; i++) {
+					const net = new window.brain.NeuralNetwork({
+						hiddenLayers: [16, 16],
+						activation: 'sigmoid',
+					});
+
+					try {
+						const dummyInput = {
+							squareX: 0.5, squareY: 0.5, closestCircleX: 0.5, closestCircleY: 0.5,
+							distanceToClosestCircle: 0.5, distanceToLeftWall: 0.5, distanceToRightWall: 0.5,
+							distanceToTopWall: 0.5, distanceToBottomWall: 0.5
+						};
+						const dummyOutput = { idle: 0, up: 0, down: 0, left: 0, right: 0 };
+						OUTPUT_ACTIONS.forEach(action => dummyOutput[action] = 0);
+						dummyOutput["idle"] = 1;
+
+						await net.train([{ input: dummyInput, output: dummyOutput }], {
+							iterations: 1, errorThresh: 0.9, log: false, learningRate: 0.01, timeout: 100
+						});
+						net.colorDisplay = individualColors[i % individualColors.length];
+						neuralNetworks.push(net);
+					} catch (e) {
+						console.error(`Error during initial dummy training for network ${i}: `, e);
+						allInitialized = false;
+						break;
+					}
 				}
-				if (startButton) startButton.disabled = true;
+
+				if (allInitialized && neuralNetworks.length === POPULATION_SIZE) {
+					console.log(`${POPULATION_SIZE} new neural networks created and initialized.`);
+					if (statusMessageSpan) statusMessageSpan.textContent = "Prêt (Nouvelle population de réseaux)";
+				} else {
+					neuralNetworks = [];
+					if (statusMessageSpan) {
+						statusMessageSpan.textContent = "Erreur d'initialisation de la population.";
+						statusMessageSpan.classList.remove('text-yellow-400'); // Adjusted for dark theme
+						statusMessageSpan.classList.add('text-red-400'); // Adjusted for dark theme
+					}
+					if (startButton) startButton.disabled = true;
+				}
 			}
-		}
 	</script>
 </body>
 
