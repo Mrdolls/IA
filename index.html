@@ -294,6 +294,12 @@
 						class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer range-lg accent-blue-500">
 					<span id="epsilonFinalValue" class="text-sm text-gray-400">0.01</span>
 				</div>
+				<div class="mb-2">
+					<label for="epsilonDecayRateInput" class="block text-sm font-medium text-gray-300">Taux de Décroissance Epsilon:</label>
+					<input type="range" id="epsilonDecayRateInput" min="0.9" max="1.0" step="0.001" value="0.995"
+						class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer range-lg accent-blue-500">
+					<span id="epsilonDecayRateValue" class="text-sm text-gray-400">0.995</span>
+				</div>
 			</div>
 
 			<!-- Display & UI -->
@@ -452,6 +458,7 @@
 		let epsilon = 0.8;
 		let initialEpsilon = 0.8; // Now configurable
 		let finalEpsilon = 0.01; // Now configurable
+		let epsilonDecayRate = 0.995; // NOUVEAU: Taux de décroissance Epsilon
 
 		const OUTPUT_ACTIONS = ['idle', 'up', 'down', 'left', 'right'];
 
@@ -502,6 +509,7 @@
 			aiDecisionInterval: document.getElementById('aiDecisionIntervalInput'),
 			epsilonInitial: document.getElementById('epsilonInitialInput'),
 			epsilonFinal: document.getElementById('epsilonFinalInput'),
+			epsilonDecayRate: document.getElementById('epsilonDecayRateInput'), // NOUVEAU
 
 			showGhostIndividuals: document.getElementById('showGhostIndividualsInput'),
 			focusChangeThresholdFrames: document.getElementById('focusChangeThresholdFramesInput')
@@ -514,6 +522,7 @@
 			mutationAmount: document.getElementById('mutationAmountValue'),
 			epsilonInitial: document.getElementById('epsilonInitialValue'),
 			epsilonFinal: document.getElementById('epsilonFinalValue'),
+			epsilonDecayRate: document.getElementById('epsilonDecayRateValue'), // NOUVEAU
 		};
 
 
@@ -542,6 +551,7 @@
 			FOCUS_CHANGE_THRESHOLD_FRAMES: 75,
 			initialEpsilon: 0.8,
 			finalEpsilon: 0.01,
+			epsilonDecayRate: 0.995,
 			showGhostIndividuals: true
 		};
 
@@ -725,8 +735,8 @@
 				if (inputElement.type === 'range') {
 					inputElement.addEventListener('input', (e) => {
 						if (settingsValuesSpans[key]) {
-							// Handle specific formatting for epsilonFinal
-							if (key === 'epsilonFinal') {
+							// Handle specific formatting for epsilonFinal and epsilonDecayRate
+							if (key === 'epsilonFinal' || key === 'epsilonDecayRate') {
 								settingsValuesSpans[key].textContent = parseFloat(e.target.value).toFixed(3);
 							} else if (key === 'gameSize') { // Handle gameSize input to update text for both dimensions
 								settingsValuesSpans[key].textContent = `${e.target.value}x${e.target.value}`;
@@ -809,6 +819,9 @@
 			settingsValuesSpans.epsilonInitial.textContent = initialEpsilon.toFixed(2);
 			settingsInputs.epsilonFinal.value = finalEpsilon;
 			settingsValuesSpans.epsilonFinal.textContent = finalEpsilon.toFixed(3);
+			settingsInputs.epsilonDecayRate.value = epsilonDecayRate; // NOUVEAU
+			settingsValuesSpans.epsilonDecayRate.textContent = epsilonDecayRate.toFixed(3); // NOUVEAU
+
 
 			// Display & UI
 			settingsInputs.showGhostIndividuals.checked = showGhostIndividuals;
@@ -866,6 +879,7 @@
 			AI_DECISION_INTERVAL = parseInt(settingsInputs.aiDecisionInterval.value);
 			initialEpsilon = parseFloat(settingsInputs.epsilonInitial.value);
 			finalEpsilon = parseFloat(settingsInputs.epsilonFinal.value);
+			epsilonDecayRate = parseFloat(settingsInputs.epsilonDecayRate.value); // NOUVEAU
 			epsilon = initialEpsilon; // Reset epsilon when settings are applied
 
 			showGhostIndividuals = settingsInputs.showGhostIndividuals.checked;
@@ -929,7 +943,7 @@
 				REWARD_COLLECT_CIRCLE, PENALTY_IDLE, PENALTY_WALL_COLLISION, REWARD_MOVE_TOWARDS_CIRCLE,
 				NEW_REWARD_DIRECT_HEADING, NEW_PENALTY_WRONG_HEADING, MAX_STEPS_WITHOUT_COLLECTION, PENALTY_NO_COLLECTION_SOON,
 				POPULATION_SIZE, ELITISM_COUNT, MUTATION_RATE, MUTATION_AMOUNT, AI_DECISION_INTERVAL,
-				initialEpsilon, finalEpsilon, showGhostIndividuals, FOCUS_CHANGE_THRESHOLD_FRAMES
+				initialEpsilon, finalEpsilon, epsilonDecayRate, showGhostIndividuals, FOCUS_CHANGE_THRESHOLD_FRAMES
 			});
 
 			// No closeSettingsPanel() here, as it should remain open for further adjustments.
@@ -970,6 +984,7 @@
 			AI_DECISION_INTERVAL = defaultSettings.AI_DECISION_INTERVAL;
 			initialEpsilon = defaultSettings.initialEpsilon;
 			finalEpsilon = defaultSettings.finalEpsilon;
+			epsilonDecayRate = defaultSettings.epsilonDecayRate; // NOUVEAU
 			epsilon = initialEpsilon; // Reset epsilon
 
 			showGhostIndividuals = defaultSettings.showGhostIndividuals;
@@ -1711,11 +1726,16 @@
 			}
 
 			if (MAX_WAVES > 1) {
-				epsilon = Math.max(finalEpsilon, initialEpsilon - (initialEpsilon - finalEpsilon) * ((currentGeneration - 1) / (MAX_WAVES - 1)));
+				// Exponential decay: epsilon = initialEpsilon * (decayRate ^ (generation - 1))
+				// Linear decay: epsilon = initialEpsilon - (initialEpsilon - finalEpsilon) * ((currentGeneration -1) / (MAX_WAVES -1))
+				// For now, using the new epsilonDecayRate for exponential decay:
+				epsilon = initialEpsilon * Math.pow(epsilonDecayRate, currentGeneration -1);
+				epsilon = Math.max(finalEpsilon, epsilon); // Ensure it doesn't go below finalEpsilon
+
 			} else {
 				epsilon = finalEpsilon;
 			}
-			if (epsilonDisplay) epsilonDisplay.textContent = epsilon.toFixed(2);
+			if (epsilonDisplay) epsilonDisplay.textContent = epsilon.toFixed(3); // Display with more precision
 
 			// Reset progress bar for the new wave
 			if (waveProgressBar && waveProgressText) {
@@ -1889,7 +1909,7 @@
 			}
 
 			waveNumberSpan.textContent = currentGeneration;
-			epsilonDisplay.textContent = epsilon.toFixed(2);
+			epsilonDisplay.textContent = epsilon.toFixed(3); // Afficher avec plus de précision
 
 			if (isTraining) {
 				statusMessageSpan.textContent = `Meilleur Score Global: ${overallBestScore.toFixed(2)} `;
@@ -1941,6 +1961,7 @@
 				AI_DECISION_INTERVAL: parseInt(document.getElementById('aiDecisionIntervalInput').value),
 				initialEpsilon: parseFloat(document.getElementById('epsilonInitialInput').value),
 				finalEpsilon: parseFloat(document.getElementById('epsilonFinalInput').value),
+				epsilonDecayRate: parseFloat(document.getElementById('epsilonDecayRateInput').value), // NOUVEAU
 
 				showGhostIndividuals: document.getElementById('showGhostIndividualsInput').checked,
 				FOCUS_CHANGE_THRESHOLD_FRAMES: parseInt(document.getElementById('focusChangeThresholdFramesInput').value)
@@ -2004,7 +2025,7 @@
 						if (isRange && rangeValueSpanId) {
 							const spanElement = document.getElementById(rangeValueSpanId);
 							if (spanElement) {
-								if (id === 'epsilonFinalInput') { // Cas spécial pour epsilonFinal
+								if (id === 'epsilonFinalInput' || id === 'epsilonDecayRateInput') { // Cas spécial pour epsilonFinal et epsilonDecayRate
 									spanElement.textContent = parseFloat(value).toFixed(3);
 								} else if (id === 'gameSizeInput') {
 									spanElement.textContent = `${value}x${value}`;
@@ -2048,6 +2069,7 @@
 				setFieldValue('aiDecisionIntervalInput', loadedSettings.AI_DECISION_INTERVAL);
 				setFieldValue('epsilonInitialInput', loadedSettings.initialEpsilon, false, true, 'epsilonInitialValue');
 				setFieldValue('epsilonFinalInput', loadedSettings.epsilonFinal, false, true, 'epsilonFinalValue');
+				setFieldValue('epsilonDecayRateInput', loadedSettings.epsilonDecayRate, false, true, 'epsilonDecayRateValue'); // NOUVEAU
 
 				// Display & UI
 				setFieldValue('showGhostIndividualsInput', loadedSettings.showGhostIndividuals, true);
@@ -2182,3 +2204,5 @@
 </body>
 
 </html>
+
+[end of index.html]
