@@ -143,6 +143,14 @@
 				class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-75 w-full mt-2">
 				Réinitialiser les paramètres par défaut
 			</button>
+
+			<!-- Save/Load Settings -->
+			<div class="mt-4 pt-4 border-t border-gray-600">
+				<button id="saveSettingsButton" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-opacity-75 w-full mt-4">Sauvegarder Paramètres</button>
+				<button id="loadSettingsButton" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 w-full mt-2">Charger Paramètres</button>
+				<input type="file" id="loadSettingsFile" accept=".json" style="display: none;">
+			</div>
+
 			<!-- Game Parameters -->
 			<div class="bg-gray-700 p-4 rounded-lg">
 				<h3 class="text-xl font-semibold mb-3 text-gray-100">Paramètres du jeu</h3>
@@ -732,6 +740,34 @@
 			}
 
 			resetSettingsButton.addEventListener('click', resetSettings);
+
+			// --- Récupération des nouveaux boutons de sauvegarde/chargement des paramètres ---
+			const saveSettingsButton = document.getElementById('saveSettingsButton');
+			const loadSettingsButton = document.getElementById('loadSettingsButton');
+			const loadSettingsFile = document.getElementById('loadSettingsFile');
+
+			// --- Attachement des écouteurs d'événements pour sauvegarde/chargement ---
+			if (saveSettingsButton) {
+				saveSettingsButton.addEventListener('click', saveSettingsToFile);
+			}
+
+			if (loadSettingsButton && loadSettingsFile) {
+				loadSettingsButton.addEventListener('click', () => {
+					// On s'assure que la fonction triggerLoadSettings est bien appelée
+					// pour cliquer sur l'input fichier caché.
+					if (typeof triggerLoadSettings === 'function') {
+						triggerLoadSettings();
+					} else {
+						console.error('triggerLoadSettings function is not defined.');
+						// Fallback au cas où, même si triggerLoadSettings est simple
+						loadSettingsFile.click();
+					}
+				});
+				loadSettingsFile.addEventListener('change', loadSettingsFromFile);
+			} else {
+				if (!loadSettingsButton) console.error('loadSettingsButton not found');
+				if (!loadSettingsFile) console.error('loadSettingsFile input not found');
+			}
 		});
 
 		function toggleSettingsPanel() {
@@ -1878,6 +1914,153 @@
 				}
 			}
 		}
+
+		function saveSettingsToFile() {
+			const settings = {
+				GAME_WIDTH: parseInt(document.getElementById('gameSizeInput').value),
+				GAME_HEIGHT: parseInt(document.getElementById('gameSizeInput').value), // Same as width
+				SQUARE_SIZE: parseInt(document.getElementById('squareSizeInput').value),
+				CIRCLE_RADIUS: parseInt(document.getElementById('circleRadiusInput').value),
+				INITIAL_CIRCLES: parseInt(document.getElementById('initialCirclesInput').value),
+				WAVE_DURATION: parseInt(document.getElementById('waveDurationInput').value),
+				MAX_WAVES: parseInt(document.getElementById('maxWavesInput').value),
+
+				REWARD_COLLECT_CIRCLE: parseFloat(document.getElementById('rewardCollectCircleInput').value),
+				PENALTY_IDLE: parseFloat(document.getElementById('penaltyIdleInput').value),
+				PENALTY_WALL_COLLISION: parseFloat(document.getElementById('penaltyWallCollisionInput').value),
+				REWARD_MOVE_TOWARDS_CIRCLE: parseFloat(document.getElementById('rewardMoveTowardsCircleInput').value),
+				NEW_REWARD_DIRECT_HEADING: parseFloat(document.getElementById('newRewardDirectHeadingInput').value),
+				NEW_PENALTY_WRONG_HEADING: parseFloat(document.getElementById('newPenaltyWrongHeadingInput').value),
+				MAX_STEPS_WITHOUT_COLLECTION: parseInt(document.getElementById('maxStepsWithoutCollectionInput').value),
+				PENALTY_NO_COLLECTION_SOON: parseFloat(document.getElementById('penaltyNoCollectionSoonInput').value),
+
+				POPULATION_SIZE: parseInt(document.getElementById('populationSizeInput').value),
+				ELITISM_COUNT: parseInt(document.getElementById('elitismCountInput').value),
+				MUTATION_RATE: parseFloat(document.getElementById('mutationRateInput').value),
+				MUTATION_AMOUNT: parseFloat(document.getElementById('mutationAmountInput').value),
+				AI_DECISION_INTERVAL: parseInt(document.getElementById('aiDecisionIntervalInput').value),
+				initialEpsilon: parseFloat(document.getElementById('epsilonInitialInput').value),
+				finalEpsilon: parseFloat(document.getElementById('epsilonFinalInput').value),
+
+				showGhostIndividuals: document.getElementById('showGhostIndividualsInput').checked,
+				FOCUS_CHANGE_THRESHOLD_FRAMES: parseInt(document.getElementById('focusChangeThresholdFramesInput').value)
+			};
+
+			try {
+				const jsonString = JSON.stringify(settings, null, 2);
+				const blob = new Blob([jsonString], { type: "application/json" });
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+				a.download = 'neural_trainer_settings.json';
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+				URL.revokeObjectURL(url);
+				statusMessageSpan.textContent = "Paramètres sauvegardés dans neural_trainer_settings.json";
+				statusMessageSpan.className = 'font-bold text-green-400';
+			} catch (error) {
+				console.error("Erreur lors de la sauvegarde des paramètres:", error);
+				statusMessageSpan.textContent = "Erreur lors de la sauvegarde des paramètres.";
+				statusMessageSpan.className = 'font-bold text-red-400';
+			}
+		}
+
+		function triggerLoadSettings() {
+			document.getElementById('loadSettingsFile').click();
+		}
+
+		function loadSettingsFromFile(event) {
+			const file = event.target.files[0];
+			if (!file) {
+				return;
+			}
+
+			const reader = new FileReader();
+			reader.onload = (e) => {
+				let loadedSettings;
+				try {
+					loadedSettings = JSON.parse(e.target.result);
+				} catch (error) {
+					console.error("Erreur de parsing du JSON des paramètres:", error);
+					statusMessageSpan.textContent = "Erreur: Fichier de paramètres JSON invalide.";
+					statusMessageSpan.className = 'font-bold text-red-400';
+					return;
+				}
+
+				// Update input fields
+				if (loadedSettings.hasOwnProperty('GAME_WIDTH')) {
+					settingsInputs.gameSize.value = loadedSettings.GAME_WIDTH;
+					settingsValuesSpans.gameSize.textContent = `${loadedSettings.GAME_WIDTH}x${loadedSettings.GAME_HEIGHT || loadedSettings.GAME_WIDTH}`;
+				}
+				// General numeric and text inputs
+				const numericInputs = [
+					'squareSize', 'circleRadius', 'initialCircles', 'waveDuration', 'maxWaves',
+					'rewardCollectCircle', 'penaltyIdle', 'penaltyWallCollision', 'rewardMoveTowardsCircle',
+					'newRewardDirectHeading', 'newPenaltyWrongHeading', 'maxStepsWithoutCollection',
+					'penaltyNoCollectionSoon', 'populationSize', 'elitismCount', 'aiDecisionInterval',
+					'focusChangeThresholdFrames'
+				];
+				numericInputs.forEach(key => {
+					const inputKey = `${key}Input`; // e.g., squareSize -> squareSizeInput
+					if (settingsInputs[key] && loadedSettings.hasOwnProperty(key.toUpperCase())) {
+						settingsInputs[key].value = loadedSettings[key.toUpperCase()];
+					} else if (settingsInputs[inputKey] && loadedSettings.hasOwnProperty(key.toUpperCase())) { // Fallback for direct key name
+						 settingsInputs[inputKey].value = loadedSettings[key.toUpperCase()];
+					} else if (settingsInputs[key] && loadedSettings.hasOwnProperty(key)) { // Fallback for direct key name from settings object
+						settingsInputs[key].value = loadedSettings[key];
+					}
+				});
+
+				// Range inputs and their value spans
+				const rangeInputs = ['mutationRate', 'mutationAmount', 'epsilonInitial', 'epsilonFinal'];
+				rangeInputs.forEach(key => {
+					const inputKey = `${key}Input`; // e.g., mutationRate -> mutationRateInput
+					const valueSpanKey = key; // e.g., mutationRate -> mutationRateValue (for settingsValuesSpans)
+
+					let valueToSet = null;
+					if (loadedSettings.hasOwnProperty(key.toUpperCase())) { // Check for GAME_WIDTH style
+						valueToSet = loadedSettings[key.toUpperCase()];
+					} else if (loadedSettings.hasOwnProperty(key)) { // Check for direct key style (initialEpsilon, finalEpsilon)
+						valueToSet = loadedSettings[key];
+					}
+
+					if (valueToSet !== null) {
+						if (settingsInputs[inputKey]) {
+							settingsInputs[inputKey].value = valueToSet;
+						}
+						if (settingsValuesSpans[valueSpanKey]) {
+							if (key === 'epsilonFinal') {
+								settingsValuesSpans[valueSpanKey].textContent = parseFloat(valueToSet).toFixed(3);
+							} else {
+								settingsValuesSpans[valueSpanKey].textContent = parseFloat(valueToSet).toFixed(2);
+							}
+						}
+					}
+				});
+
+
+				// Checkbox
+				if (loadedSettings.hasOwnProperty('showGhostIndividuals')) {
+					settingsInputs.showGhostIndividuals.checked = loadedSettings.showGhostIndividuals;
+				}
+
+				applySettings(); // Apply the new settings to the game logic
+
+				statusMessageSpan.textContent = "Paramètres chargés avec succès depuis le fichier.";
+				statusMessageSpan.className = 'font-bold text-green-400';
+				event.target.value = null; // Reset file input
+			};
+
+			reader.onerror = () => {
+				console.error("Erreur de lecture du fichier de paramètres.");
+				statusMessageSpan.textContent = "Erreur de lecture du fichier.";
+				statusMessageSpan.className = 'font-bold text-red-400';
+			};
+
+			reader.readAsText(file);
+		}
+
 
 		function savePopulation() {
 			if (neuralNetworks.length === 0) return;
