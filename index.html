@@ -1760,45 +1760,49 @@
 			// 	generationsSinceLastImprovement = 0;
 			// }
 
-			// if (childrenNeeded > 0 && scoredNetworks.length > 0) {
-				// if (SELECTION_METHOD === 'tournament') {
-					// console.log(`[Selection] Using Tournament Selection. Tournament Size: ${TOURNAMENT_SIZE}, Children Needed: ${childrenNeeded}`);
-					// if (scoredNetworks.length < TOURNAMENT_SIZE) {
-						// console.warn(`[Selection] Not enough individuals (${scoredNetworks.length}) for tournament size (${TOURNAMENT_SIZE}). Reducing tournament size or using fallback.`);
-						// Fallback to simpler selection or adjust TOURNAMENT_SIZE if this happens often
-					// }
+			if (childrenNeeded > 0 && scoredNetworks.length > 0) {
+				if (SELECTION_METHOD === 'tournament') {
+					console.log(`[Selection] Using Tournament Selection. Tournament Size: ${TOURNAMENT_SIZE}, Children Needed: ${childrenNeeded}`);
+					if (scoredNetworks.length < TOURNAMENT_SIZE && scoredNetworks.length > 0) { // Check if there are any networks at all
+						console.warn(`[Selection] Not enough individuals (${scoredNetworks.length}) for configured tournament size (${TOURNAMENT_SIZE}). Using actual population size as tournament size.`);
+					} else if (scoredNetworks.length === 0) {
+                        console.error("[Selection] FATAL: No scored networks available for tournament selection. Cannot proceed to create children.");
+                        // This case should ideally not be reached if childrenNeeded > 0
+                    }
 
-					// for (let i = 0; i < childrenNeeded; i++) {
-						// const parent1 = selectParentTournament(scoredNetworks);
-						// const parent2 = selectParentTournament(scoredNetworks, parent1); // Try to select a different second parent
 
-						// if (!parent1 || !parent2) {
-							// console.warn("[Selection] Could not select two parents via tournament. Using best available as fallback.");
-							// const fallbackParent = scoredNetworks[0];
-							// const childJson = crossover(fallbackParent.networkJSON, fallbackParent.networkJSON);
-							// const childMutationResult = mutate(childJson, actualMutationRate, actualMutationAmount);
-							// nextGenerationData.push({ json: childMutationResult.mutatedJson, wasMutated: childMutationResult.didMutate, parentScore: fallbackParent.score });
-							// continue;
-						// }
+					for (let i = 0; i < childrenNeeded; i++) {
+						const parent1 = selectParentTournament(scoredNetworks, TOURNAMENT_SIZE);
+						const parent2 = selectParentTournament(scoredNetworks, TOURNAMENT_SIZE, parent1); // Try to select a different second parent
 
-						// console.log(`[Selection] Child ${i}: Parent 1 (Idx ${parent1.index}, Score ${parent1.score.toFixed(2)}), Parent 2 (Idx ${parent2.index}, Score ${parent2.score.toFixed(2)})`);
+						if (!parent1 || !parent2) {
+							console.warn("[Selection] Could not select two distinct parents via tournament. Using best available as fallback or duplicating parent1.");
+							const fallbackParent = parent1 || scoredNetworks[0]; // Use parent1 if available, else best overall
+							const parentToCrossWith = parent2 || fallbackParent; // Use parent2 if available, else fallbackParent (potentially parent1 again)
 
-						// let childJson = crossover(parent1.networkJSON, parent2.networkJSON);
-						// let childMutationResult;
+							const childJson = crossover(fallbackParent.networkJSON, parentToCrossWith.networkJSON);
+							const childMutationResult = mutate(childJson, actualMutationRate, actualMutationAmount);
+							nextGenerationData.push({ json: childMutationResult.mutatedJson, wasMutated: childMutationResult.didMutate, parentScore: (fallbackParent.score + parentToCrossWith.score) / 2 });
+							continue;
+						}
 
-						// if (childJson) {
-							// childMutationResult = mutate(childJson, actualMutationRate, actualMutationAmount);
-							// nextGenerationData.push({ json: childMutationResult.mutatedJson, wasMutated: childMutationResult.didMutate, parentScore: (parent1.score + parent2.score) / 2 });
-						// } else {
-							// console.warn("[Selection] Crossover returned null. Copying best of two parents (mutated).");
-							// let fallbackChildJson = JSON.parse(JSON.stringify(parent1.score > parent2.score ? parent1.networkJSON : parent2.networkJSON));
-							// childMutationResult = mutate(fallbackChildJson, actualMutationRate, actualMutationAmount);
-							// nextGenerationData.push({ json: childMutationResult.mutatedJson, wasMutated: childMutationResult.didMutate, parentScore: Math.max(parent1.score, parent2.score) });
-						// }
-					// }
-				// } else { // Default to 'elitismPlusChampion' (original behavior)
-					// console.log(`[Selection] Using Elitism + Champion Selection. Children Needed: ${childrenNeeded}`);
-				if (childrenNeeded > 0 && scoredNetworks.length > 0) { // This line was outside the original if/else, keeping it here to control the block below
+						console.log(`[Selection] Child ${i}: Parent 1 (Idx ${parent1.index}, Score ${parent1.score.toFixed(2)}), Parent 2 (Idx ${parent2.index}, Score ${parent2.score.toFixed(2)})`);
+
+						let childJson = crossover(parent1.networkJSON, parent2.networkJSON);
+						let childMutationResult;
+
+						if (childJson) {
+							childMutationResult = mutate(childJson, actualMutationRate, actualMutationAmount);
+							nextGenerationData.push({ json: childMutationResult.mutatedJson, wasMutated: childMutationResult.didMutate, parentScore: (parent1.score + parent2.score) / 2 });
+						} else {
+							console.warn("[Selection] Crossover returned null. Copying best of two parents (mutated).");
+							let fallbackChildJson = JSON.parse(JSON.stringify(parent1.score >= parent2.score ? parent1.networkJSON : parent2.networkJSON));
+							childMutationResult = mutate(fallbackChildJson, actualMutationRate, actualMutationAmount);
+							nextGenerationData.push({ json: childMutationResult.mutatedJson, wasMutated: childMutationResult.didMutate, parentScore: Math.max(parent1.score, parent2.score) });
+						}
+					}
+				} else { // Default to 'elitismPlusChampion' (original behavior)
+					console.log(`[Selection] Using Elitism + Champion Selection. Children Needed: ${childrenNeeded}`);
 					const bestParentJSON = scoredNetworks[0].networkJSON;
 					const bestParentScore = scoredNetworks[0].score;
 
@@ -1949,50 +1953,65 @@
 			runGenerationEvaluationStep();
 		}
 
-		/*
-		function selectParentTournament(scoredNetworks, excludeParent = null) {
+
+		function selectParentTournament(scoredNetworks, tournamentSizeParam, excludeParent = null) {
 			if (!scoredNetworks || scoredNetworks.length === 0) {
 				console.warn("[Tournament] No networks to select from.");
 				return null;
 			}
 
-			const actualTournamentSize = Math.min(TOURNAMENT_SIZE, scoredNetworks.length);
-			if (actualTournamentSize <= 0) {
-				console.warn("[Tournament] Tournament size is zero or negative, cannot select parent.");
-				return scoredNetworks[0]; // Fallback to best
-			}
+			// Ensure tournamentSizeParam is at least 1 and not greater than the number of available networks
+			const numAvailableNetworks = scoredNetworks.length - (excludeParent ? 1 : 0);
+			const actualTournamentSize = Math.max(1, Math.min(tournamentSizeParam, numAvailableNetworks));
+
+			if (actualTournamentSize <= 0 && numAvailableNetworks > 0) { // Should not happen if numAvailableNetworks > 0 due to Math.max(1,...)
+                 console.warn("[Tournament] Calculated tournament size is zero or negative, but networks are available. Defaulting to 1.");
+                 // This case implies a logic flaw if reached, but we make it robust.
+                 // If excludeParent is the only one, numAvailableNetworks could be 0.
+            } else if (numAvailableNetworks === 0) {
+                console.warn("[Tournament] No networks available for selection after exclusion (or empty initial list).");
+                return null; // Or return scoredNetworks[0] if excludeParent was the only one and we allow it
+            }
+
 
 			let tournamentContestants = [];
 			let availableNetworks = [...scoredNetworks];
 
 			// If an excludeParent is provided, filter it out from the available pool for this selection
-			if (excludeParent && excludeParent.networkJSON) { // Check networkJSON to ensure it's a valid scoredNetwork object
-				availableNetworks = availableNetworks.filter(net => net.networkJSON !== excludeParent.networkJSON); // Compare by JSON content for uniqueness
+			if (excludeParent && excludeParent.networkJSON) {
+				const excludeIndex = availableNetworks.findIndex(net => net.index === excludeParent.index);
+				if (excludeIndex > -1) {
+					availableNetworks.splice(excludeIndex, 1);
+				}
 			}
 
-			if (availableNetworks.length === 0) { // If filtering left no one (e.g. only one unique individual was in scoredNetworks)
-				 console.warn("[Tournament] No available networks after exclusion for tournament, returning best from original list or null.");
-                 return scoredNetworks.length > 0 ? scoredNetworks[0] : null;
-			}
+			// If after exclusion, not enough for tournament, use all available
+			const finalTournamentSizeForLoop = Math.min(actualTournamentSize, availableNetworks.length);
+
+			if (finalTournamentSizeForLoop === 0 && availableNetworks.length > 0) { // Should ideally not happen if availableNetworks.length > 0
+				tournamentContestants.push(availableNetworks[0]); // Take the best if calculation is off
+			} else if (availableNetworks.length === 0) {
+                console.warn("[Tournament] No networks left after potential exclusion for tournament contestants loop.");
+                return scoredNetworks[0] || null; // Fallback to overall best if nothing else.
+            }
 
 
-			for (let i = 0; i < actualTournamentSize; i++) {
-				if (availableNetworks.length === 0) break; // Stop if we run out of unique individuals
+			for (let i = 0; i < finalTournamentSizeForLoop; i++) {
+				if (availableNetworks.length === 0) break;
 				const randomIndex = Math.floor(Math.random() * availableNetworks.length);
 				tournamentContestants.push(availableNetworks[randomIndex]);
-				availableNetworks.splice(randomIndex, 1); // Ensure contestants are unique within this tournament
+				availableNetworks.splice(randomIndex, 1);
 			}
 
 			if (tournamentContestants.length === 0) {
-			    console.warn("[Tournament] No contestants selected, possibly due to exclusion. Returning best available.");
-			    return scoredNetworks[0]; // Fallback if no contestants could be picked
+			    console.warn("[Tournament] No contestants selected. Returning best available from original list or null.");
+			    return scoredNetworks[0] || null;
 			}
 
-			tournamentContestants.sort((a, b) => b.score - a.score); // Sort by score, highest first
-			// console.log(`[Tournament] Contestants (Scores): ${tournamentContestants.map(c => c.score.toFixed(2)).join(', ')}. Winner Score: ${tournamentContestants[0].score.toFixed(2)}`);
-			return tournamentContestants[0]; // Winner is the one with the highest score
+			tournamentContestants.sort((a, b) => b.score - a.score);
+			return tournamentContestants[0];
 		}
-		*/
+
 
 
 		function crossover(networkJSON1, networkJSON2) {
