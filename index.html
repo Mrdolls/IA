@@ -1988,64 +1988,77 @@
 					return;
 				}
 
-				// Update input fields
-				if (loadedSettings.hasOwnProperty('GAME_WIDTH')) {
-					settingsInputs.gameSize.value = loadedSettings.GAME_WIDTH;
-					settingsValuesSpans.gameSize.textContent = `${loadedSettings.GAME_WIDTH}x${loadedSettings.GAME_HEIGHT || loadedSettings.GAME_WIDTH}`;
-				}
-				// General numeric and text inputs
-				const numericInputs = [
-					'squareSize', 'circleRadius', 'initialCircles', 'waveDuration', 'maxWaves',
-					'rewardCollectCircle', 'penaltyIdle', 'penaltyWallCollision', 'rewardMoveTowardsCircle',
-					'newRewardDirectHeading', 'newPenaltyWrongHeading', 'maxStepsWithoutCollection',
-					'penaltyNoCollectionSoon', 'populationSize', 'elitismCount', 'aiDecisionInterval',
-					'focusChangeThresholdFrames'
-				];
-				numericInputs.forEach(key => {
-					const inputKey = `${key}Input`; // e.g., squareSize -> squareSizeInput
-					if (settingsInputs[key] && loadedSettings.hasOwnProperty(key.toUpperCase())) {
-						settingsInputs[key].value = loadedSettings[key.toUpperCase()];
-					} else if (settingsInputs[inputKey] && loadedSettings.hasOwnProperty(key.toUpperCase())) { // Fallback for direct key name
-						 settingsInputs[inputKey].value = loadedSettings[key.toUpperCase()];
-					} else if (settingsInputs[key] && loadedSettings.hasOwnProperty(key)) { // Fallback for direct key name from settings object
-						settingsInputs[key].value = loadedSettings[key];
-					}
-				});
+				// --- Début de la section à remplacer/vérifier ---
+				console.log("Applying loaded settings to form fields...");
 
-				// Range inputs and their value spans
-				const rangeInputs = ['mutationRate', 'mutationAmount', 'epsilonInitial', 'epsilonFinal'];
-				rangeInputs.forEach(key => {
-					const inputKey = `${key}Input`; // e.g., mutationRate -> mutationRateInput
-					const valueSpanKey = key; // e.g., mutationRate -> mutationRateValue (for settingsValuesSpans)
-
-					let valueToSet = null;
-					if (loadedSettings.hasOwnProperty(key.toUpperCase())) { // Check for GAME_WIDTH style
-						valueToSet = loadedSettings[key.toUpperCase()];
-					} else if (loadedSettings.hasOwnProperty(key)) { // Check for direct key style (initialEpsilon, finalEpsilon)
-						valueToSet = loadedSettings[key];
-					}
-
-					if (valueToSet !== null) {
-						if (settingsInputs[inputKey]) {
-							settingsInputs[inputKey].value = valueToSet;
+				function setFieldValue(id, value, isCheckbox = false, isRange = false, rangeValueSpanId = null) {
+					const element = document.getElementById(id);
+					if (element) {
+						if (isCheckbox) {
+							element.checked = value;
+							// console.log(`Set checkbox ${id} to ${value}`);
+						} else {
+							element.value = value;
+							// console.log(`Set field ${id} to ${value}`);
 						}
-						if (settingsValuesSpans[valueSpanKey]) {
-							if (key === 'epsilonFinal') {
-								settingsValuesSpans[valueSpanKey].textContent = parseFloat(valueToSet).toFixed(3);
+						if (isRange && rangeValueSpanId) {
+							const spanElement = document.getElementById(rangeValueSpanId);
+							if (spanElement) {
+								if (id === 'epsilonFinalInput') { // Cas spécial pour epsilonFinal
+									spanElement.textContent = parseFloat(value).toFixed(3);
+								} else if (id === 'gameSizeInput') {
+									spanElement.textContent = `${value}x${value}`;
+								}
+								else {
+									spanElement.textContent = parseFloat(value).toFixed(2);
+								}
 							} else {
-								settingsValuesSpans[valueSpanKey].textContent = parseFloat(valueToSet).toFixed(2);
+								console.warn(`Range value span element with ID "${rangeValueSpanId}" not found for ${id}.`);
 							}
 						}
+					} else {
+						console.warn(`Element with ID "${id}" not found.`);
 					}
-				});
-
-
-				// Checkbox
-				if (loadedSettings.hasOwnProperty('showGhostIndividuals')) {
-					settingsInputs.showGhostIndividuals.checked = loadedSettings.showGhostIndividuals;
 				}
 
-				applySettings(); // Apply the new settings to the game logic
+				// Game Parameters
+				setFieldValue('gameSizeInput', loadedSettings.GAME_WIDTH, false, true, 'gameSizeValue');
+				// Note: GAME_HEIGHT est implicitement géré par gameSizeInput et applySettings
+				setFieldValue('squareSizeInput', loadedSettings.SQUARE_SIZE);
+				setFieldValue('circleRadiusInput', loadedSettings.CIRCLE_RADIUS);
+				setFieldValue('initialCirclesInput', loadedSettings.INITIAL_CIRCLES);
+				setFieldValue('waveDurationInput', loadedSettings.WAVE_DURATION);
+				setFieldValue('maxWavesInput', loadedSettings.MAX_WAVES);
+
+				// Rewards & Penalties
+				setFieldValue('rewardCollectCircleInput', loadedSettings.REWARD_COLLECT_CIRCLE);
+				setFieldValue('penaltyIdleInput', loadedSettings.PENALTY_IDLE);
+				setFieldValue('penaltyWallCollisionInput', loadedSettings.PENALTY_WALL_COLLISION);
+				setFieldValue('rewardMoveTowardsCircleInput', loadedSettings.REWARD_MOVE_TOWARDS_CIRCLE);
+				setFieldValue('newRewardDirectHeadingInput', loadedSettings.NEW_REWARD_DIRECT_HEADING);
+				setFieldValue('newPenaltyWrongHeadingInput', loadedSettings.NEW_PENALTY_WRONG_HEADING);
+				setFieldValue('maxStepsWithoutCollectionInput', loadedSettings.MAX_STEPS_WITHOUT_COLLECTION);
+				setFieldValue('penaltyNoCollectionSoonInput', loadedSettings.PENALTY_NO_COLLECTION_SOON);
+
+				// Genetic Algorithm Parameters
+				setFieldValue('populationSizeInput', loadedSettings.POPULATION_SIZE);
+				setFieldValue('elitismCountInput', loadedSettings.ELITISM_COUNT);
+				setFieldValue('mutationRateInput', loadedSettings.MUTATION_RATE, false, true, 'mutationRateValue');
+				setFieldValue('mutationAmountInput', loadedSettings.MUTATION_AMOUNT, false, true, 'mutationAmountValue');
+				setFieldValue('aiDecisionIntervalInput', loadedSettings.AI_DECISION_INTERVAL);
+				setFieldValue('epsilonInitialInput', loadedSettings.initialEpsilon, false, true, 'epsilonInitialValue');
+				setFieldValue('epsilonFinalInput', loadedSettings.epsilonFinal, false, true, 'epsilonFinalValue');
+
+				// Display & UI
+				setFieldValue('showGhostIndividualsInput', loadedSettings.showGhostIndividuals, true);
+				setFieldValue('focusChangeThresholdFramesInput', loadedSettings.FOCUS_CHANGE_THRESHOLD_FRAMES);
+
+				console.log("Form fields update attempt complete.");
+				// --- Fin de la section à remplacer/vérifier ---
+
+				applySettings();
+				console.log("applySettings() called after attempting to update form fields.");
+
 
 				statusMessageSpan.textContent = "Paramètres chargés avec succès depuis le fichier.";
 				statusMessageSpan.className = 'font-bold text-green-400';
