@@ -261,6 +261,18 @@
 						class="w-full p-2 bg-gray-900 border border-gray-600 rounded-md text-gray-100">
 				</div>
 				<div class="mb-2">
+					<label for="selectionMethodInput" class="block text-sm font-medium text-gray-300">Méthode de Sélection:</label>
+					<select id="selectionMethodInput" class="w-full p-2 bg-gray-900 border border-gray-600 rounded-md text-gray-100 focus:ring-indigo-500 focus:border-indigo-500">
+						<option value="elitismPlusChampion">Élitisme + Champion</option>
+						<option value="tournament">Tournoi</option>
+					</select>
+				</div>
+				<div class="mb-2" id="tournamentSizeSetting"> <!-- Wrapper pour gérer la visibilité -->
+					<label for="tournamentSizeInput" class="block text-sm font-medium text-gray-300">Taille du Tournoi (si Tournoi):</label>
+					<input type="number" id="tournamentSizeInput" min="2" max="10" value="3"
+						class="w-full p-2 bg-gray-900 border border-gray-600 rounded-md text-gray-100">
+				</div>
+				<div class="mb-2">
 					<label for="mutationRateInput" class="block text-sm font-medium text-gray-300">Taux de
 						Mutation:</label>
 					<input type="range" id="mutationRateInput" min="0.01" max="0.5" step="0.01" value="0.08"
@@ -300,6 +312,20 @@
 						class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer range-lg accent-blue-500">
 					<span id="epsilonDecayRateValue" class="text-sm text-gray-400">0.995</span>
 				</div>
+				<!-- Commented out incorrect stagnation fields -->
+				<!--
+				<div class="mb-2">
+					<label for="maxGenerationsWithoutImprovementInput" class="block text-sm font-medium text-gray-300">Générations Max Sans Amélioration:</label>
+					<input type="number" id="maxGenerationsWithoutImprovementInput" min="5" max="200" step="1" value="20"
+						class="w-full p-2 bg-gray-900 border border-gray-600 rounded-md text-gray-100">
+				</div>
+				<div class="mb-2">
+					<label for="stagnationActionFactorInput" class="block text-sm font-medium text-gray-300">Facteur d'Action (Stagnation):</label>
+					<input type="range" id="stagnationActionFactorInput" min="0.1" max="2.0" step="0.05" value="0.5"
+						class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer range-lg accent-blue-500">
+					<span id="stagnationActionFactorValue" class="text-sm text-gray-400">0.50</span>
+				</div>
+				-->
 			</div>
 
 			<!-- Display & UI -->
@@ -347,8 +373,13 @@
 		// --- Population & Genetic Algorithm Constants (now using let) ---
 		let POPULATION_SIZE = 15;
 		let ELITISM_COUNT = 5;
+		let SELECTION_METHOD = 'elitismPlusChampion'; // NOUVEAU: Méthode de sélection
+		let TOURNAMENT_SIZE = 3; // NOUVEAU: Taille du tournoi
 		let MUTATION_RATE = 0.08;
 		let MUTATION_AMOUNT = 0.15;
+		// let MAX_GENERATIONS_WITHOUT_IMPROVEMENT = 20; // Commented out
+		// let STAGNATION_ACTION_FACTOR = 0.5; // Commented out
+
 
 		// --- Fixed Simulation Parameters (now using let if configurable) ---
 		let AI_DECISION_INTERVAL = 2;
@@ -448,6 +479,22 @@
 		let gameLoopId;
 		let showGhostIndividuals = true; // MODIFIED: default value to true
 		let overallBestScore = -Infinity;
+		// let generationsSinceLastImprovement = 0; // Commented out
+		// let lastOverallBestScore = -Infinity; // Commented out
+
+
+		// Function to manage visibility of tournament size input
+		function updateTournamentSizeVisibility() {
+			// Use settingsInputs.selectionMethod.value if available, otherwise fallback to global SELECTION_METHOD
+			// This helps during initial load before settingsInputs might be fully processed by all scripts
+			const currentSelectionMethod = settingsInputs && settingsInputs.selectionMethod ? settingsInputs.selectionMethod.value : SELECTION_METHOD;
+			const tournamentSizeDiv = document.getElementById('tournamentSizeSetting');
+			if (tournamentSizeDiv) {
+				tournamentSizeDiv.style.display = currentSelectionMethod === 'tournament' ? 'block' : 'none';
+			} else {
+				console.warn("tournamentSizeSetting div not found by updateTournamentSizeVisibility");
+			}
+		}
 
 		// Variables for focus inertia in ghost mode (now using let)
 		let currentFocusedIndividual = 0;
@@ -458,7 +505,7 @@
 		let epsilon = 0.8;
 		let initialEpsilon = 0.8; // Now configurable
 		let finalEpsilon = 0.01; // Now configurable
-		let epsilonDecayRate = 0.995; // NOUVEAU: Taux de décroissance Epsilon
+		let epsilonDecayRate = 0.995;
 
 		const OUTPUT_ACTIONS = ['idle', 'up', 'down', 'left', 'right'];
 
@@ -504,12 +551,16 @@
 
 			populationSize: document.getElementById('populationSizeInput'),
 			elitismCount: document.getElementById('elitismCountInput'),
+			selectionMethod: document.getElementById('selectionMethodInput'), // NOUVEAU
+			tournamentSize: document.getElementById('tournamentSizeInput'), // NOUVEAU
 			mutationRate: document.getElementById('mutationRateInput'),
 			mutationAmount: document.getElementById('mutationAmountInput'),
 			aiDecisionInterval: document.getElementById('aiDecisionIntervalInput'),
 			epsilonInitial: document.getElementById('epsilonInitialInput'),
 			epsilonFinal: document.getElementById('epsilonFinalInput'),
-			epsilonDecayRate: document.getElementById('epsilonDecayRateInput'), // NOUVEAU
+			epsilonDecayRate: document.getElementById('epsilonDecayRateInput'),
+			// maxGenerationsWithoutImprovement: document.getElementById('maxGenerationsWithoutImprovementInput'), // Commented out
+			// stagnationActionFactor: document.getElementById('stagnationActionFactorInput'), // Commented out
 
 			showGhostIndividuals: document.getElementById('showGhostIndividualsInput'),
 			focusChangeThresholdFrames: document.getElementById('focusChangeThresholdFramesInput')
@@ -522,7 +573,8 @@
 			mutationAmount: document.getElementById('mutationAmountValue'),
 			epsilonInitial: document.getElementById('epsilonInitialValue'),
 			epsilonFinal: document.getElementById('epsilonFinalValue'),
-			epsilonDecayRate: document.getElementById('epsilonDecayRateValue'), // NOUVEAU
+			epsilonDecayRate: document.getElementById('epsilonDecayRateValue'),
+			// stagnationActionFactor: document.getElementById('stagnationActionFactorValue'), // Commented out
 		};
 
 
@@ -545,6 +597,8 @@
 			PENALTY_NO_COLLECTION_SOON: -0.5,
 			POPULATION_SIZE: 15,
 			ELITISM_COUNT: 4,
+			SELECTION_METHOD: 'elitismPlusChampion', // NOUVEAU
+			TOURNAMENT_SIZE: 3, // NOUVEAU
 			MUTATION_RATE: 0.08,
 			MUTATION_AMOUNT: 0.15,
 			AI_DECISION_INTERVAL: 5,
@@ -552,6 +606,8 @@
 			initialEpsilon: 0.8,
 			finalEpsilon: 0.01,
 			epsilonDecayRate: 0.995,
+			// maxGenerationsWithoutImprovement: 20, // Commented out
+			// stagnationActionFactor: 0.5, // Commented out
 			showGhostIndividuals: true
 		};
 
@@ -728,7 +784,7 @@
 			for (const key in settingsInputs) {
 				const inputElement = settingsInputs[key];
 				// Use 'input' for range and number inputs, 'change' for checkboxes
-				const eventType = (inputElement.type === 'range' || inputElement.type === 'number') ? 'input' : 'change';
+				const eventType = (inputElement.type === 'range' || inputElement.type === 'number' || inputElement.tagName === 'SELECT') ? 'input' : 'change';
 				inputElement.addEventListener(eventType, applySettings);
 
 				// Update corresponding span values for range inputs immediately
@@ -736,7 +792,7 @@
 					inputElement.addEventListener('input', (e) => {
 						if (settingsValuesSpans[key]) {
 							// Handle specific formatting for epsilonFinal and epsilonDecayRate
-							if (key === 'epsilonFinal' || key === 'epsilonDecayRate') {
+							if (key === 'epsilonFinal' || key === 'epsilonDecayRate' || key === 'stagnationActionFactor') {
 								settingsValuesSpans[key].textContent = parseFloat(e.target.value).toFixed(3);
 							} else if (key === 'gameSize') { // Handle gameSize input to update text for both dimensions
 								settingsValuesSpans[key].textContent = `${e.target.value}x${e.target.value}`;
@@ -755,6 +811,9 @@
 			const saveSettingsButton = document.getElementById('saveSettingsButton');
 			const loadSettingsButton = document.getElementById('loadSettingsButton');
 			const loadSettingsFile = document.getElementById('loadSettingsFile');
+			const selectionMethodInput = document.getElementById('selectionMethodInput'); // NOUVEAU
+			const tournamentSizeSetting = document.getElementById('tournamentSizeSetting'); // NOUVEAU
+
 
 			// --- Attachement des écouteurs d'événements pour sauvegarde/chargement ---
 			if (saveSettingsButton) {
@@ -778,6 +837,22 @@
 				if (!loadSettingsButton) console.error('loadSettingsButton not found');
 				if (!loadSettingsFile) console.error('loadSettingsFile input not found');
 			}
+
+			// --- Écouteur pour la méthode de sélection pour afficher/masquer la taille du tournoi ---
+			// The generic event listener for all settingsInputs (which includes selectionMethod)
+			// already calls applySettings. applySettings will now call updateTournamentSizeVisibility.
+			// So, a specific listener here for 'change' just to call applySettings and updateTournamentSizeVisibility
+			// might be redundant if applySettings handles it.
+			// However, ensuring the initial visibility is set correctly on DOMContentLoaded is good.
+			if (selectionMethodInput && tournamentSizeSetting) {
+				// Initial visibility setup on load, based on the default SELECTION_METHOD or loaded settings
+				// This is important before populateSettingsInputs or applySettings might have run from other triggers.
+				updateTournamentSizeVisibility(); // Call the global function here for initial setup
+			} else {
+				if (!selectionMethodInput) console.error('selectionMethodInput not found on DOMContentLoaded');
+				if (!tournamentSizeSetting) console.error('tournamentSizeSetting div not found on DOMContentLoaded');
+			}
+
 		});
 
 		function toggleSettingsPanel() {
@@ -789,7 +864,7 @@
 
 		function populateSettingsInputs() {
 			// Game Parameters
-			settingsInputs.gameSize.value = GAME_WIDTH; // Use GAME_WIDTH as the single source for game size
+			settingsInputs.gameSize.value = GAME_WIDTH;
 			settingsValuesSpans.gameSize.textContent = `${GAME_WIDTH}x${GAME_HEIGHT}`;
 			settingsInputs.squareSize.value = SQUARE_SIZE;
 			settingsInputs.circleRadius.value = CIRCLE_RADIUS;
@@ -810,6 +885,8 @@
 			// Genetic Algorithm Parameters
 			settingsInputs.populationSize.value = POPULATION_SIZE;
 			settingsInputs.elitismCount.value = ELITISM_COUNT;
+			settingsInputs.selectionMethod.value = SELECTION_METHOD;
+			settingsInputs.tournamentSize.value = TOURNAMENT_SIZE;
 			settingsInputs.mutationRate.value = MUTATION_RATE;
 			settingsValuesSpans.mutationRate.textContent = MUTATION_RATE.toFixed(2);
 			settingsInputs.mutationAmount.value = MUTATION_AMOUNT;
@@ -819,13 +896,18 @@
 			settingsValuesSpans.epsilonInitial.textContent = initialEpsilon.toFixed(2);
 			settingsInputs.epsilonFinal.value = finalEpsilon;
 			settingsValuesSpans.epsilonFinal.textContent = finalEpsilon.toFixed(3);
-			settingsInputs.epsilonDecayRate.value = epsilonDecayRate; // NOUVEAU
-			settingsValuesSpans.epsilonDecayRate.textContent = epsilonDecayRate.toFixed(3); // NOUVEAU
+			settingsInputs.epsilonDecayRate.value = epsilonDecayRate;
+			settingsValuesSpans.epsilonDecayRate.textContent = epsilonDecayRate.toFixed(3);
+			// settingsInputs.maxGenerationsWithoutImprovement.value = MAX_GENERATIONS_WITHOUT_IMPROVEMENT; // Already commented out
+			// settingsInputs.stagnationActionFactor.value = STAGNATION_ACTION_FACTOR; // Already commented out
+			// settingsValuesSpans.stagnationActionFactor.textContent = STAGNATION_ACTION_FACTOR.toFixed(2); // Already commented out
 
 
 			// Display & UI
 			settingsInputs.showGhostIndividuals.checked = showGhostIndividuals;
 			settingsInputs.focusChangeThresholdFrames.value = FOCUS_CHANGE_THRESHOLD_FRAMES;
+
+			updateTournamentSizeVisibility(); // Ensure visibility is correct when populating settings
 		}
 
 		function applySettings() {
@@ -873,13 +955,19 @@
 			}
 			POPULATION_SIZE = newPopulationSize;
 			ELITISM_COUNT = newElitismCount;
+			SELECTION_METHOD = settingsInputs.selectionMethod.value;
+			TOURNAMENT_SIZE = parseInt(settingsInputs.tournamentSize.value);
+			// Visibility is now handled by updateTournamentSizeVisibility
+
 
 			MUTATION_RATE = parseFloat(settingsInputs.mutationRate.value);
 			MUTATION_AMOUNT = parseFloat(settingsInputs.mutationAmount.value);
 			AI_DECISION_INTERVAL = parseInt(settingsInputs.aiDecisionInterval.value);
 			initialEpsilon = parseFloat(settingsInputs.epsilonInitial.value);
 			finalEpsilon = parseFloat(settingsInputs.epsilonFinal.value);
-			epsilonDecayRate = parseFloat(settingsInputs.epsilonDecayRate.value); // NOUVEAU
+			epsilonDecayRate = parseFloat(settingsInputs.epsilonDecayRate.value);
+			// MAX_GENERATIONS_WITHOUT_IMPROVEMENT = parseInt(settingsInputs.maxGenerationsWithoutImprovement.value); // Commented out
+			// STAGNATION_ACTION_FACTOR = parseFloat(settingsInputs.stagnationActionFactor.value); // Commented out
 			epsilon = initialEpsilon; // Reset epsilon when settings are applied
 
 			showGhostIndividuals = settingsInputs.showGhostIndividuals.checked;
@@ -929,6 +1017,8 @@
 			currentIndividualIndex = 0;
 			currentStepInGeneration = 0;
 			overallBestScore = -Infinity;
+			// generationsSinceLastImprovement = 0; // Commented out
+			// lastOverallBestScore = -Infinity; // Commented out
 			currentFocusedIndividual = 0;
 			candidateForFocus = 0;
 			framesAsCandidate = 0;
@@ -942,9 +1032,13 @@
 				GAME_WIDTH, GAME_HEIGHT, SQUARE_SIZE, CIRCLE_RADIUS, INITIAL_CIRCLES, WAVE_DURATION, MAX_WAVES,
 				REWARD_COLLECT_CIRCLE, PENALTY_IDLE, PENALTY_WALL_COLLISION, REWARD_MOVE_TOWARDS_CIRCLE,
 				NEW_REWARD_DIRECT_HEADING, NEW_PENALTY_WRONG_HEADING, MAX_STEPS_WITHOUT_COLLECTION, PENALTY_NO_COLLECTION_SOON,
-				POPULATION_SIZE, ELITISM_COUNT, MUTATION_RATE, MUTATION_AMOUNT, AI_DECISION_INTERVAL,
-				initialEpsilon, finalEpsilon, epsilonDecayRate, showGhostIndividuals, FOCUS_CHANGE_THRESHOLD_FRAMES
+				POPULATION_SIZE, ELITISM_COUNT, SELECTION_METHOD, TOURNAMENT_SIZE, MUTATION_RATE, MUTATION_AMOUNT, AI_DECISION_INTERVAL,
+				initialEpsilon, finalEpsilon, epsilonDecayRate,
+				// MAX_GENERATIONS_WITHOUT_IMPROVEMENT, STAGNATION_ACTION_FACTOR, // Already commented out
+				showGhostIndividuals, FOCUS_CHANGE_THRESHOLD_FRAMES
 			});
+
+			updateTournamentSizeVisibility(); // Ensure UI consistency after applying settings
 
 			// No closeSettingsPanel() here, as it should remain open for further adjustments.
 			// Re-start training if it was running before applying settings
@@ -979,12 +1073,16 @@
 
 			POPULATION_SIZE = defaultSettings.POPULATION_SIZE;
 			ELITISM_COUNT = defaultSettings.ELITISM_COUNT;
+			SELECTION_METHOD = defaultSettings.SELECTION_METHOD;
+			TOURNAMENT_SIZE = defaultSettings.TOURNAMENT_SIZE;
 			MUTATION_RATE = defaultSettings.MUTATION_RATE;
 			MUTATION_AMOUNT = defaultSettings.MUTATION_AMOUNT;
 			AI_DECISION_INTERVAL = defaultSettings.AI_DECISION_INTERVAL;
 			initialEpsilon = defaultSettings.initialEpsilon;
 			finalEpsilon = defaultSettings.finalEpsilon;
-			epsilonDecayRate = defaultSettings.epsilonDecayRate; // NOUVEAU
+			epsilonDecayRate = defaultSettings.epsilonDecayRate;
+			// MAX_GENERATIONS_WITHOUT_IMPROVEMENT = defaultSettings.maxGenerationsWithoutImprovement; // Commented out
+			// STAGNATION_ACTION_FACTOR = defaultSettings.stagnationActionFactor; // Commented out
 			epsilon = initialEpsilon; // Reset epsilon
 
 			showGhostIndividuals = defaultSettings.showGhostIndividuals;
@@ -1029,6 +1127,8 @@
 			currentIndividualIndex = 0;
 			currentStepInGeneration = 0;
 			overallBestScore = -Infinity;
+			// generationsSinceLastImprovement = 0; // Already commented out
+			// lastOverallBestScore = -Infinity; // Already commented out
 			currentFocusedIndividual = 0;
 			candidateForFocus = 0;
 			framesAsCandidate = 0;
@@ -1038,6 +1138,9 @@
 			statusMessageSpan.textContent = "Paramètres réinitialisés aux valeurs par défaut. Prêt à lancer l'entraînement.";
 			statusMessageSpan.className = 'font-bold text-green-400';
 			console.log("Paramètres réinitialisés.");
+
+			updateTournamentSizeVisibility(); // Ensure UI consistency after resetting settings
+
 
 			// The panel will remain open if it was open, as applySettings no longer closes it.
 		}
@@ -1496,6 +1599,9 @@
 			}
 
 			overallBestScore = -Infinity;
+			// generationsSinceLastImprovement = 0; // Commented out
+			// lastOverallBestScore = -Infinity; // Commented out
+
 			if (!neuralNetworks || neuralNetworks.length !== POPULATION_SIZE) {
 				statusMessageSpan.textContent = "Erreur: Population de réseaux non (entièrement) initialisée.";
 				statusMessageSpan.className = 'font-bold text-red-400'; // Adjusted for dark theme
@@ -1599,6 +1705,18 @@
 			}
 			console.log(`[processEndOfGenEval] Final scores Gen. ${currentGeneration}: [${individualScores.map(s => s.toFixed(2)).join(', ')}]`);
 
+			// Stagnation detection (temporarily commented out)
+			// const currentMaxScoreThisGeneration = Math.max(...individualScores);
+			// if (currentMaxScoreThisGeneration > lastOverallBestScore) {
+			// 	lastOverallBestScore = currentMaxScoreThisGeneration;
+			// 	generationsSinceLastImprovement = 0;
+			// 	console.log(`[Stagnation] New best score this generation: ${lastOverallBestScore.toFixed(2)}. Reset stagnation counter.`);
+			// } else {
+			// 	generationsSinceLastImprovement++;
+			// 	console.log(`[Stagnation] No improvement for ${generationsSinceLastImprovement} generations. Current best: ${lastOverallBestScore.toFixed(2)}`);
+			// }
+
+
 			for (const score of individualScores) {
 				if (score > overallBestScore) {
 					overallBestScore = score;
@@ -1618,39 +1736,107 @@
 
 			let nextGenerationData = [];
 
+			// 1. Elitism: Preserve the best individuals
 			for (let i = 0; i < ELITISM_COUNT && i < scoredNetworks.length; i++) {
-				nextGenerationData.push({ json: scoredNetworks[i].networkJSON, wasMutated: false });
+				nextGenerationData.push({ json: scoredNetworks[i].networkJSON, wasMutated: false, parentScore: scoredNetworks[i].score });
+				console.log(`[Selection] Elite ${i}: Original Index ${scoredNetworks[i].index}, Score ${scoredNetworks[i].score.toFixed(2)}`);
 			}
 
 			let childrenNeeded = POPULATION_SIZE - nextGenerationData.length;
-			if (scoredNetworks.length > 0 && childrenNeeded > 0) {
-				const bestParentJSON = scoredNetworks[0].networkJSON;
-				for (let i = 0; i < childrenNeeded; i++) {
-					let parent2Index = (i % (Math.min(4, scoredNetworks.length - 1))) + 1;
-					if (parent2Index >= scoredNetworks.length || parent2Index === 0) {
-						parent2Index = (scoredNetworks.length > 1) ? 1 : 0;
-					}
-					if (scoredNetworks.length > 1 && parent2Index === 0 && scoredNetworks[0].index === scoredNetworks[parent2Index].index) parent2Index = 1;
+			let actualMutationRate = MUTATION_RATE;
+			let actualMutationAmount = MUTATION_AMOUNT;
 
-					const parent2JSON = scoredNetworks[parent2Index] ? scoredNetworks[parent2Index].networkJSON : bestParentJSON;
-					let childJson = crossover(bestParentJSON, parent2JSON);
-					let childMutationResult;
+			// Stagnation action (temporarily commented out)
+			// if (generationsSinceLastImprovement >= MAX_GENERATIONS_WITHOUT_IMPROVEMENT) {
+			// 	console.log(`[Stagnation] Stagnation detected! Activating increased mutation for this generation.`);
+			// 	statusMessageSpan.textContent = "Stagnation détectée! Augmentation de la mutation.";
+			// 	statusMessageSpan.className = 'font-bold text-orange-400';
+			// 	actualMutationRate *= STAGNATION_ACTION_FACTOR;
+			// 	actualMutationAmount *= STAGNATION_ACTION_FACTOR;
+			// 	actualMutationRate = Math.min(actualMutationRate, 1.0);
+			// 	actualMutationAmount = Math.min(actualMutationAmount, 2.0);
+			// 	generationsSinceLastImprovement = 0;
+			// 	actualMutationAmount = Math.min(actualMutationAmount, 2.0);
+			// 	generationsSinceLastImprovement = 0;
+			// }
 
-					if (childJson) {
-						childMutationResult = mutate(childJson, MUTATION_RATE, MUTATION_AMOUNT);
-						nextGenerationData.push({ json: childMutationResult.mutatedJson, wasMutated: childMutationResult.didMutate });
-					} else {
-						console.warn("[processEndOfGenEval] Crossover returned null, copying best parent (mutated).");
-						let fallbackChildJson = JSON.parse(JSON.stringify(bestParentJSON));
-						childMutationResult = mutate(fallbackChildJson, MUTATION_RATE, MUTATION_AMOUNT);
-						nextGenerationData.push({ json: childMutationResult.mutatedJson, wasMutated: childMutationResult.didMutate });
+			// if (childrenNeeded > 0 && scoredNetworks.length > 0) {
+				// if (SELECTION_METHOD === 'tournament') {
+					// console.log(`[Selection] Using Tournament Selection. Tournament Size: ${TOURNAMENT_SIZE}, Children Needed: ${childrenNeeded}`);
+					// if (scoredNetworks.length < TOURNAMENT_SIZE) {
+						// console.warn(`[Selection] Not enough individuals (${scoredNetworks.length}) for tournament size (${TOURNAMENT_SIZE}). Reducing tournament size or using fallback.`);
+						// Fallback to simpler selection or adjust TOURNAMENT_SIZE if this happens often
+					// }
+
+					// for (let i = 0; i < childrenNeeded; i++) {
+						// const parent1 = selectParentTournament(scoredNetworks);
+						// const parent2 = selectParentTournament(scoredNetworks, parent1); // Try to select a different second parent
+
+						// if (!parent1 || !parent2) {
+							// console.warn("[Selection] Could not select two parents via tournament. Using best available as fallback.");
+							// const fallbackParent = scoredNetworks[0];
+							// const childJson = crossover(fallbackParent.networkJSON, fallbackParent.networkJSON);
+							// const childMutationResult = mutate(childJson, actualMutationRate, actualMutationAmount);
+							// nextGenerationData.push({ json: childMutationResult.mutatedJson, wasMutated: childMutationResult.didMutate, parentScore: fallbackParent.score });
+							// continue;
+						// }
+
+						// console.log(`[Selection] Child ${i}: Parent 1 (Idx ${parent1.index}, Score ${parent1.score.toFixed(2)}), Parent 2 (Idx ${parent2.index}, Score ${parent2.score.toFixed(2)})`);
+
+						// let childJson = crossover(parent1.networkJSON, parent2.networkJSON);
+						// let childMutationResult;
+
+						// if (childJson) {
+							// childMutationResult = mutate(childJson, actualMutationRate, actualMutationAmount);
+							// nextGenerationData.push({ json: childMutationResult.mutatedJson, wasMutated: childMutationResult.didMutate, parentScore: (parent1.score + parent2.score) / 2 });
+						// } else {
+							// console.warn("[Selection] Crossover returned null. Copying best of two parents (mutated).");
+							// let fallbackChildJson = JSON.parse(JSON.stringify(parent1.score > parent2.score ? parent1.networkJSON : parent2.networkJSON));
+							// childMutationResult = mutate(fallbackChildJson, actualMutationRate, actualMutationAmount);
+							// nextGenerationData.push({ json: childMutationResult.mutatedJson, wasMutated: childMutationResult.didMutate, parentScore: Math.max(parent1.score, parent2.score) });
+						// }
+					// }
+				// } else { // Default to 'elitismPlusChampion' (original behavior)
+					// console.log(`[Selection] Using Elitism + Champion Selection. Children Needed: ${childrenNeeded}`);
+				if (childrenNeeded > 0 && scoredNetworks.length > 0) { // This line was outside the original if/else, keeping it here to control the block below
+					const bestParentJSON = scoredNetworks[0].networkJSON;
+					const bestParentScore = scoredNetworks[0].score;
+
+					for (let i = 0; i < childrenNeeded; i++) {
+						// Simple strategy: Crossover best with next few in line, or just best with best for simplicity if fewer parents
+						let parent2Index = (i % (Math.min(ELITISM_COUNT > 0 ? ELITISM_COUNT : 1, scoredNetworks.length -1))) + (ELITISM_COUNT > 0 ? 0 : 1) ;
+						if (parent2Index >= scoredNetworks.length || parent2Index < 0) { // Ensure parent2Index is valid
+							parent2Index = (scoredNetworks.length > 1) ? 1 : 0; // Fallback to second best or best if only one
+						}
+                         // Avoid best crossing with itself if possible and other elites exist
+                        if (ELITISM_COUNT > 0 && parent2Index === 0 && scoredNetworks.length > 1) parent2Index = 1;
+
+
+						const parent2JSON = scoredNetworks[parent2Index] ? scoredNetworks[parent2Index].networkJSON : bestParentJSON;
+						const parent2Score = scoredNetworks[parent2Index] ? scoredNetworks[parent2Index].score : bestParentScore;
+
+						console.log(`[Selection] Child ${i}: Parent 1 (Idx ${scoredNetworks[0].index}, Score ${bestParentScore.toFixed(2)}), Parent 2 (Idx ${scoredNetworks[parent2Index] ? scoredNetworks[parent2Index].index : scoredNetworks[0].index}, Score ${parent2Score.toFixed(2)})`);
+
+						let childJson = crossover(bestParentJSON, parent2JSON);
+						let childMutationResult;
+
+						if (childJson) {
+							childMutationResult = mutate(childJson, actualMutationRate, actualMutationAmount);
+							nextGenerationData.push({ json: childMutationResult.mutatedJson, wasMutated: childMutationResult.didMutate, parentScore: (bestParentScore + parent2Score) / 2 });
+						} else {
+							console.warn("[Selection] Crossover returned null. Copying best parent (mutated).");
+							let fallbackChildJson = JSON.parse(JSON.stringify(bestParentJSON));
+							childMutationResult = mutate(fallbackChildJson, actualMutationRate, actualMutationAmount);
+							nextGenerationData.push({ json: childMutationResult.mutatedJson, wasMutated: childMutationResult.didMutate, parentScore: bestParentScore });
+						}
 					}
-				}
+				// } // End of original else for selection method
+			// }
 			} else if (childrenNeeded > 0) {
 				console.warn("[processEndOfGenEval] No valid networks for reproduction. Filling with new (untrained) networks.");
 				for (let i = 0; i < childrenNeeded; i++) {
 					const tempNet = new brain.NeuralNetwork({ hiddenLayers: [16, 16], activation: 'sigmoid' });
-					nextGenerationData.push({ json: tempNet.toJSON(), wasMutated: false });
+					nextGenerationData.push({ json: tempNet.toJSON(), wasMutated: false, parentScore: -Infinity });
 				}
 			}
 
@@ -1660,10 +1846,10 @@
 				let netJSON;
 
 				if (!networkDataEntry || !networkDataEntry.json) {
-
+					console.warn(`[Population] No network data for individual ${i}, creating fallback.`);
 					const tempNetForFill = new brain.NeuralNetwork({ hiddenLayers: [16, 16], activation: 'sigmoid' });
 					netJSON = tempNetForFill.toJSON();
-					networkDataEntry = { json: netJSON, wasMutated: false };
+					networkDataEntry = { json: netJSON, wasMutated: false, parentScore: -Infinity };
 				} else {
 					netJSON = networkDataEntry.json;
 				}
@@ -1671,23 +1857,45 @@
 				try {
 					const net = new window.brain.NeuralNetwork().fromJSON(netJSON);
 					net.wasMutatedThisGeneration = networkDataEntry.wasMutated;
+					net.parentScoreAtBirth = networkDataEntry.parentScore; // Store parent score for potential analysis
 
-					if (net.wasMutatedThisGeneration) {
+					// Color assignment logic:
+					// Elites keep their original color from the 'scoredNetworks' mapping (if they were elites)
+					// Mutated children get a new random color.
+					// Non-mutated children might inherit or get a color based on their new position.
+					let assignedColor = individualColors[i % individualColors.length]; // Default color
+
+					if (i < ELITISM_COUNT && scoredNetworks[i]) { // Elite individual
+						const originalEliteIndex = scoredNetworks[i].index;
+                        // Attempt to find original color if available on the saved network object
+                        if (neuralNetworks[originalEliteIndex] && neuralNetworks[originalEliteIndex].colorDisplay) {
+                             assignedColor = neuralNetworks[originalEliteIndex].colorDisplay;
+                        } else {
+                             assignedColor = individualColors[originalEliteIndex % individualColors.length]; // Fallback for elites
+                        }
+						console.log(`[Population] Elite ${i} (orig Idx ${originalEliteIndex}) keeps color: ${assignedColor}`);
+					} else if (net.wasMutatedThisGeneration) {
 						let newColorIndex = Math.floor(Math.random() * individualColors.length);
+						// Try to ensure new color is different from default positional color, if possible
 						if (individualColors.length > 1 && newColorIndex === (i % individualColors.length)) {
 							newColorIndex = (newColorIndex + 1) % individualColors.length;
 						}
-						net.colorDisplay = individualColors[newColorIndex];
-						console.log(`Individual ${i} mutated and receives new color: ${net.colorDisplay}`);
+						assignedColor = individualColors[newColorIndex];
+						console.log(`[Population] Mutated child ${i} gets new color: ${assignedColor}`);
 					} else {
-						net.colorDisplay = individualColors[i % individualColors.length];
+						// Non-mutated child, can get a standard color or a color derived from parents
+						// For now, use standard positional color
+						assignedColor = individualColors[i % individualColors.length];
+						console.log(`[Population] Non-mutated child ${i} gets standard color: ${assignedColor}`);
 					}
+					net.colorDisplay = assignedColor;
 					newNeuralNetworks.push(net);
 				} catch (e) {
-					console.error(`fromJSON error for individual ${i}, using fallback.`, e, netJSON);
+					console.error(`[Population] fromJSON error for individual ${i}, using fallback. Error:`, e, "JSON:", netJSON);
 					const fallbackNet = new window.brain.NeuralNetwork({ hiddenLayers: [16, 16], activation: 'sigmoid' });
 					fallbackNet.wasMutatedThisGeneration = false;
-					fallbackNet.colorDisplay = individualColors[i % individualColors.length];
+					fallbackNet.parentScoreAtBirth = -Infinity;
+					fallbackNet.colorDisplay = individualColors[i % individualColors.length]; // Default color for fallback
 					newNeuralNetworks.push(fallbackNet);
 				}
 			}
@@ -1722,22 +1930,17 @@
 
 			generateCirclesForGeneration(INITIAL_CIRCLES);
 			for (let i = 0; i < POPULATION_SIZE; i++) {
-				initGame(i); // S'assurer que initGame est appelé avant de potentiellement dessiner
+				initGame(i);
 			}
 
 			if (MAX_WAVES > 1) {
-				// Exponential decay: epsilon = initialEpsilon * (decayRate ^ (generation - 1))
-				// Linear decay: epsilon = initialEpsilon - (initialEpsilon - finalEpsilon) * ((currentGeneration -1) / (MAX_WAVES -1))
-				// For now, using the new epsilonDecayRate for exponential decay:
-				epsilon = initialEpsilon * Math.pow(epsilonDecayRate, currentGeneration -1);
-				epsilon = Math.max(finalEpsilon, epsilon); // Ensure it doesn't go below finalEpsilon
-
+				epsilon = initialEpsilon * Math.pow(epsilonDecayRate, currentGeneration - 1);
+				epsilon = Math.max(finalEpsilon, epsilon);
 			} else {
 				epsilon = finalEpsilon;
 			}
-			if (epsilonDisplay) epsilonDisplay.textContent = epsilon.toFixed(3); // Display with more precision
+			if (epsilonDisplay) epsilonDisplay.textContent = epsilon.toFixed(3);
 
-			// Reset progress bar for the new wave
 			if (waveProgressBar && waveProgressText) {
 				waveProgressBar.style.width = '0%';
 				waveProgressText.textContent = '0%';
@@ -1745,6 +1948,52 @@
 
 			runGenerationEvaluationStep();
 		}
+
+		/*
+		function selectParentTournament(scoredNetworks, excludeParent = null) {
+			if (!scoredNetworks || scoredNetworks.length === 0) {
+				console.warn("[Tournament] No networks to select from.");
+				return null;
+			}
+
+			const actualTournamentSize = Math.min(TOURNAMENT_SIZE, scoredNetworks.length);
+			if (actualTournamentSize <= 0) {
+				console.warn("[Tournament] Tournament size is zero or negative, cannot select parent.");
+				return scoredNetworks[0]; // Fallback to best
+			}
+
+			let tournamentContestants = [];
+			let availableNetworks = [...scoredNetworks];
+
+			// If an excludeParent is provided, filter it out from the available pool for this selection
+			if (excludeParent && excludeParent.networkJSON) { // Check networkJSON to ensure it's a valid scoredNetwork object
+				availableNetworks = availableNetworks.filter(net => net.networkJSON !== excludeParent.networkJSON); // Compare by JSON content for uniqueness
+			}
+
+			if (availableNetworks.length === 0) { // If filtering left no one (e.g. only one unique individual was in scoredNetworks)
+				 console.warn("[Tournament] No available networks after exclusion for tournament, returning best from original list or null.");
+                 return scoredNetworks.length > 0 ? scoredNetworks[0] : null;
+			}
+
+
+			for (let i = 0; i < actualTournamentSize; i++) {
+				if (availableNetworks.length === 0) break; // Stop if we run out of unique individuals
+				const randomIndex = Math.floor(Math.random() * availableNetworks.length);
+				tournamentContestants.push(availableNetworks[randomIndex]);
+				availableNetworks.splice(randomIndex, 1); // Ensure contestants are unique within this tournament
+			}
+
+			if (tournamentContestants.length === 0) {
+			    console.warn("[Tournament] No contestants selected, possibly due to exclusion. Returning best available.");
+			    return scoredNetworks[0]; // Fallback if no contestants could be picked
+			}
+
+			tournamentContestants.sort((a, b) => b.score - a.score); // Sort by score, highest first
+			// console.log(`[Tournament] Contestants (Scores): ${tournamentContestants.map(c => c.score.toFixed(2)).join(', ')}. Winner Score: ${tournamentContestants[0].score.toFixed(2)}`);
+			return tournamentContestants[0]; // Winner is the one with the highest score
+		}
+		*/
+
 
 		function crossover(networkJSON1, networkJSON2) {
 			if (!networkJSON1 || !networkJSON2) {
@@ -1956,12 +2205,17 @@
 
 				POPULATION_SIZE: parseInt(document.getElementById('populationSizeInput').value),
 				ELITISM_COUNT: parseInt(document.getElementById('elitismCountInput').value),
+				selectionMethod: document.getElementById('selectionMethodInput').value, // MODIFIED KEY
+				tournamentSize: parseInt(document.getElementById('tournamentSizeInput').value),   // MODIFIED KEY
 				MUTATION_RATE: parseFloat(document.getElementById('mutationRateInput').value),
 				MUTATION_AMOUNT: parseFloat(document.getElementById('mutationAmountInput').value),
 				AI_DECISION_INTERVAL: parseInt(document.getElementById('aiDecisionIntervalInput').value),
 				initialEpsilon: parseFloat(document.getElementById('epsilonInitialInput').value),
 				finalEpsilon: parseFloat(document.getElementById('epsilonFinalInput').value),
-				epsilonDecayRate: parseFloat(document.getElementById('epsilonDecayRateInput').value), // NOUVEAU
+				epsilonDecayRate: parseFloat(document.getElementById('epsilonDecayRateInput').value),
+				// maxGenerationsWithoutImprovement: parseInt(document.getElementById('maxGenerationsWithoutImprovementInput').value), // Commented out
+				// stagnationActionFactor: parseFloat(document.getElementById('stagnationActionFactorInput').value), // Commented out
+
 
 				showGhostIndividuals: document.getElementById('showGhostIndividualsInput').checked,
 				FOCUS_CHANGE_THRESHOLD_FRAMES: parseInt(document.getElementById('focusChangeThresholdFramesInput').value)
@@ -2025,7 +2279,7 @@
 						if (isRange && rangeValueSpanId) {
 							const spanElement = document.getElementById(rangeValueSpanId);
 							if (spanElement) {
-								if (id === 'epsilonFinalInput' || id === 'epsilonDecayRateInput') { // Cas spécial pour epsilonFinal et epsilonDecayRate
+								if (id === 'epsilonFinalInput' || id === 'epsilonDecayRateInput' || id === 'stagnationActionFactorInput') {
 									spanElement.textContent = parseFloat(value).toFixed(3);
 								} else if (id === 'gameSizeInput') {
 									spanElement.textContent = `${value}x${value}`;
@@ -2064,12 +2318,19 @@
 				// Genetic Algorithm Parameters
 				setFieldValue('populationSizeInput', loadedSettings.POPULATION_SIZE);
 				setFieldValue('elitismCountInput', loadedSettings.ELITISM_COUNT);
+				setFieldValue('selectionMethodInput', loadedSettings.selectionMethod); // MODIFIED KEY
+				setFieldValue('tournamentSizeInput', loadedSettings.tournamentSize);   // MODIFIED KEY
+				// Visibility is handled by applySettings calling updateTournamentSizeVisibility
+
 				setFieldValue('mutationRateInput', loadedSettings.MUTATION_RATE, false, true, 'mutationRateValue');
 				setFieldValue('mutationAmountInput', loadedSettings.MUTATION_AMOUNT, false, true, 'mutationAmountValue');
 				setFieldValue('aiDecisionIntervalInput', loadedSettings.AI_DECISION_INTERVAL);
 				setFieldValue('epsilonInitialInput', loadedSettings.initialEpsilon, false, true, 'epsilonInitialValue');
 				setFieldValue('epsilonFinalInput', loadedSettings.epsilonFinal, false, true, 'epsilonFinalValue');
-				setFieldValue('epsilonDecayRateInput', loadedSettings.epsilonDecayRate, false, true, 'epsilonDecayRateValue'); // NOUVEAU
+				setFieldValue('epsilonDecayRateInput', loadedSettings.epsilonDecayRate, false, true, 'epsilonDecayRateValue');
+				// setFieldValue('maxGenerationsWithoutImprovementInput', loadedSettings.maxGenerationsWithoutImprovement); // Commented out
+				// setFieldValue('stagnationActionFactorInput', loadedSettings.stagnationActionFactor, false, true, 'stagnationActionFactorValue'); // Commented out
+
 
 				// Display & UI
 				setFieldValue('showGhostIndividualsInput', loadedSettings.showGhostIndividuals, true);
