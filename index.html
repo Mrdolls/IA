@@ -312,6 +312,25 @@
 						class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer range-lg accent-blue-500">
 					<span id="epsilonDecayRateValue" class="text-sm text-gray-400">0.995</span>
 				</div>
+
+				<div class="mt-4 pt-4 border-t border-gray-500"> <!-- Séparateur et un peu d'espace -->
+					<h4 class="text-md font-semibold mb-2 text-gray-200">Mutation Adaptative / Stagnation:</h4>
+					<div class="mb-2">
+						<label for="maxGenerationsWithoutImprovementInput" class="block text-sm font-medium text-gray-300">Gén. sans Amélioration Avant Boost:</label>
+						<input type="number" id="maxGenerationsWithoutImprovementInput" min="1" max="100" value="15"
+							class="w-full p-2 bg-gray-900 border border-gray-600 rounded-md text-gray-100">
+					</div>
+					<div class="mb-2">
+						<label for="stagnationMutationBoostFactorInput" class="block text-sm font-medium text-gray-300">Facteur Boost Mutation (x):</label>
+						<input type="number" id="stagnationMutationBoostFactorInput" min="1.0" max="5.0" step="0.1" value="1.5"
+							class="w-full p-2 bg-gray-900 border border-gray-600 rounded-md text-gray-100">
+					</div>
+					<div class="mb-2">
+						<label for="stagnationBoostDurationInput" class="block text-sm font-medium text-gray-300">Durée Boost (Générations):</label>
+						<input type="number" id="stagnationBoostDurationInput" min="1" max="20" value="5"
+							class="w-full p-2 bg-gray-900 border border-gray-600 rounded-md text-gray-100">
+					</div>
+				</div>
 				<!-- Commented out incorrect stagnation fields -->
 				<!--
 				<div class="mb-2">
@@ -377,9 +396,17 @@
 		let TOURNAMENT_SIZE = 3; // NOUVEAU: Taille du tournoi
 		let MUTATION_RATE = 0.08;
 		let MUTATION_AMOUNT = 0.15;
-		// let MAX_GENERATIONS_WITHOUT_IMPROVEMENT = 20; // Commented out
-		// let STAGNATION_ACTION_FACTOR = 0.5; // Commented out
+		let MAX_GENERATIONS_WITHOUT_IMPROVEMENT = defaultSettings.MAX_GENERATIONS_WITHOUT_IMPROVEMENT;
+		let STAGNATION_MUTATION_BOOST_FACTOR = defaultSettings.STAGNATION_MUTATION_BOOST_FACTOR;
+		let STAGNATION_BOOST_DURATION = defaultSettings.STAGNATION_BOOST_DURATION;
+		// let STAGNATION_ACTION_FACTOR = 0.5; // This was the old name, keeping it commented for now.
 
+		// --- Stagnation Tracking Variables ---
+		let generationsSinceOverallBestScoreImprovement = 0;
+		let lastOverallBestScoreForStagnation = -Infinity;
+		let currentMutationBoostDuration = 0;
+		let originalMutationRate = MUTATION_RATE; // Added for storing pre-boost mutation rate
+		let originalMutationAmount = MUTATION_AMOUNT; // Added for storing pre-boost mutation amount
 
 		// --- Fixed Simulation Parameters (now using let if configurable) ---
 		let AI_DECISION_INTERVAL = 2;
@@ -559,8 +586,10 @@
 			epsilonInitial: document.getElementById('epsilonInitialInput'),
 			epsilonFinal: document.getElementById('epsilonFinalInput'),
 			epsilonDecayRate: document.getElementById('epsilonDecayRateInput'),
-			// maxGenerationsWithoutImprovement: document.getElementById('maxGenerationsWithoutImprovementInput'), // Commented out
-			// stagnationActionFactor: document.getElementById('stagnationActionFactorInput'), // Commented out
+			maxGenerationsWithoutImprovement: document.getElementById('maxGenerationsWithoutImprovementInput'), // NOUVEAU
+			stagnationMutationBoostFactor: document.getElementById('stagnationMutationBoostFactorInput'),       // NOUVEAU
+			stagnationBoostDuration: document.getElementById('stagnationBoostDurationInput'),               // NOUVEAU
+			// stagnationActionFactor: document.getElementById('stagnationActionFactorInput'), // Still commented out if it existed
 
 			showGhostIndividuals: document.getElementById('showGhostIndividualsInput'),
 			focusChangeThresholdFrames: document.getElementById('focusChangeThresholdFramesInput')
@@ -597,8 +626,11 @@
 			PENALTY_NO_COLLECTION_SOON: -0.5,
 			POPULATION_SIZE: 15,
 			ELITISM_COUNT: 4,
-			SELECTION_METHOD: 'elitismPlusChampion', // NOUVEAU
-			TOURNAMENT_SIZE: 3, // NOUVEAU
+			SELECTION_METHOD: 'elitismPlusChampion',
+			TOURNAMENT_SIZE: 3,
+			MAX_GENERATIONS_WITHOUT_IMPROVEMENT: 15,
+			STAGNATION_MUTATION_BOOST_FACTOR: 1.5,
+			STAGNATION_BOOST_DURATION: 5,
 			MUTATION_RATE: 0.08,
 			MUTATION_AMOUNT: 0.15,
 			AI_DECISION_INTERVAL: 5,
@@ -606,8 +638,8 @@
 			initialEpsilon: 0.8,
 			finalEpsilon: 0.01,
 			epsilonDecayRate: 0.995,
-			// maxGenerationsWithoutImprovement: 20, // Commented out
-			// stagnationActionFactor: 0.5, // Commented out
+			// maxGenerationsWithoutImprovement: 20, // Already commented out
+			// stagnationActionFactor: 0.5, // Already commented out
 			showGhostIndividuals: true
 		};
 
@@ -898,9 +930,12 @@
 			settingsValuesSpans.epsilonFinal.textContent = finalEpsilon.toFixed(3);
 			settingsInputs.epsilonDecayRate.value = epsilonDecayRate;
 			settingsValuesSpans.epsilonDecayRate.textContent = epsilonDecayRate.toFixed(3);
-			// settingsInputs.maxGenerationsWithoutImprovement.value = MAX_GENERATIONS_WITHOUT_IMPROVEMENT; // Already commented out
-			// settingsInputs.stagnationActionFactor.value = STAGNATION_ACTION_FACTOR; // Already commented out
-			// settingsValuesSpans.stagnationActionFactor.textContent = STAGNATION_ACTION_FACTOR.toFixed(2); // Already commented out
+
+			// Populate new stagnation settings
+			settingsInputs.maxGenerationsWithoutImprovement.value = MAX_GENERATIONS_WITHOUT_IMPROVEMENT;
+			settingsInputs.stagnationMutationBoostFactor.value = STAGNATION_MUTATION_BOOST_FACTOR;
+			settingsInputs.stagnationBoostDuration.value = STAGNATION_BOOST_DURATION;
+			// settingsInputs.stagnationActionFactor.value = STAGNATION_ACTION_FACTOR; // Still commented out
 
 
 			// Display & UI
@@ -966,8 +1001,10 @@
 			initialEpsilon = parseFloat(settingsInputs.epsilonInitial.value);
 			finalEpsilon = parseFloat(settingsInputs.epsilonFinal.value);
 			epsilonDecayRate = parseFloat(settingsInputs.epsilonDecayRate.value);
-			// MAX_GENERATIONS_WITHOUT_IMPROVEMENT = parseInt(settingsInputs.maxGenerationsWithoutImprovement.value); // Commented out
-			// STAGNATION_ACTION_FACTOR = parseFloat(settingsInputs.stagnationActionFactor.value); // Commented out
+			MAX_GENERATIONS_WITHOUT_IMPROVEMENT = parseInt(settingsInputs.maxGenerationsWithoutImprovement.value);
+			STAGNATION_MUTATION_BOOST_FACTOR = parseFloat(settingsInputs.stagnationMutationBoostFactor.value);
+			STAGNATION_BOOST_DURATION = parseInt(settingsInputs.stagnationBoostDuration.value);
+			// STAGNATION_ACTION_FACTOR = parseFloat(settingsInputs.stagnationActionFactor.value); // Old name, ensure it's not used
 			epsilon = initialEpsilon; // Reset epsilon when settings are applied
 
 			showGhostIndividuals = settingsInputs.showGhostIndividuals.checked;
@@ -1017,8 +1054,9 @@
 			currentIndividualIndex = 0;
 			currentStepInGeneration = 0;
 			overallBestScore = -Infinity;
-			// generationsSinceLastImprovement = 0; // Commented out
-			// lastOverallBestScore = -Infinity; // Commented out
+			generationsSinceOverallBestScoreImprovement = 0;
+			lastOverallBestScoreForStagnation = -Infinity;
+			currentMutationBoostDuration = 0;
 			currentFocusedIndividual = 0;
 			candidateForFocus = 0;
 			framesAsCandidate = 0;
@@ -1034,7 +1072,7 @@
 				NEW_REWARD_DIRECT_HEADING, NEW_PENALTY_WRONG_HEADING, MAX_STEPS_WITHOUT_COLLECTION, PENALTY_NO_COLLECTION_SOON,
 				POPULATION_SIZE, ELITISM_COUNT, SELECTION_METHOD, TOURNAMENT_SIZE, MUTATION_RATE, MUTATION_AMOUNT, AI_DECISION_INTERVAL,
 				initialEpsilon, finalEpsilon, epsilonDecayRate,
-				// MAX_GENERATIONS_WITHOUT_IMPROVEMENT, STAGNATION_ACTION_FACTOR, // Already commented out
+				MAX_GENERATIONS_WITHOUT_IMPROVEMENT, STAGNATION_MUTATION_BOOST_FACTOR, STAGNATION_BOOST_DURATION,
 				showGhostIndividuals, FOCUS_CHANGE_THRESHOLD_FRAMES
 			});
 
@@ -1081,8 +1119,9 @@
 			initialEpsilon = defaultSettings.initialEpsilon;
 			finalEpsilon = defaultSettings.finalEpsilon;
 			epsilonDecayRate = defaultSettings.epsilonDecayRate;
-			// MAX_GENERATIONS_WITHOUT_IMPROVEMENT = defaultSettings.maxGenerationsWithoutImprovement; // Commented out
-			// STAGNATION_ACTION_FACTOR = defaultSettings.stagnationActionFactor; // Commented out
+			MAX_GENERATIONS_WITHOUT_IMPROVEMENT = defaultSettings.MAX_GENERATIONS_WITHOUT_IMPROVEMENT;
+			STAGNATION_MUTATION_BOOST_FACTOR = defaultSettings.STAGNATION_MUTATION_BOOST_FACTOR;
+			STAGNATION_BOOST_DURATION = defaultSettings.STAGNATION_BOOST_DURATION;
 			epsilon = initialEpsilon; // Reset epsilon
 
 			showGhostIndividuals = defaultSettings.showGhostIndividuals;
@@ -1127,8 +1166,9 @@
 			currentIndividualIndex = 0;
 			currentStepInGeneration = 0;
 			overallBestScore = -Infinity;
-			// generationsSinceLastImprovement = 0; // Already commented out
-			// lastOverallBestScore = -Infinity; // Already commented out
+			generationsSinceOverallBestScoreImprovement = 0;
+			lastOverallBestScoreForStagnation = -Infinity;
+			currentMutationBoostDuration = 0;
 			currentFocusedIndividual = 0;
 			candidateForFocus = 0;
 			framesAsCandidate = 0;
@@ -1599,8 +1639,9 @@
 			}
 
 			overallBestScore = -Infinity;
-			// generationsSinceLastImprovement = 0; // Commented out
-			// lastOverallBestScore = -Infinity; // Commented out
+			generationsSinceOverallBestScoreImprovement = 0;
+			lastOverallBestScoreForStagnation = -Infinity;
+			currentMutationBoostDuration = 0;
 
 			if (!neuralNetworks || neuralNetworks.length !== POPULATION_SIZE) {
 				statusMessageSpan.textContent = "Erreur: Population de réseaux non (entièrement) initialisée.";
@@ -1743,22 +1784,70 @@
 			}
 
 			let childrenNeeded = POPULATION_SIZE - nextGenerationData.length;
-			let actualMutationRate = MUTATION_RATE;
-			let actualMutationAmount = MUTATION_AMOUNT;
+			let actualMutationRate = MUTATION_RATE; // Will reflect boosted rate if active
+			let actualMutationAmount = MUTATION_AMOUNT; // Will reflect boosted amount if active
 
-			// Stagnation action (temporarily commented out)
-			// if (generationsSinceLastImprovement >= MAX_GENERATIONS_WITHOUT_IMPROVEMENT) {
-			// 	console.log(`[Stagnation] Stagnation detected! Activating increased mutation for this generation.`);
-			// 	statusMessageSpan.textContent = "Stagnation détectée! Augmentation de la mutation.";
-			// 	statusMessageSpan.className = 'font-bold text-orange-400';
-			// 	actualMutationRate *= STAGNATION_ACTION_FACTOR;
-			// 	actualMutationAmount *= STAGNATION_ACTION_FACTOR;
-			// 	actualMutationRate = Math.min(actualMutationRate, 1.0);
-			// 	actualMutationAmount = Math.min(actualMutationAmount, 2.0);
-			// 	generationsSinceLastImprovement = 0;
-			// 	actualMutationAmount = Math.min(actualMutationAmount, 2.0);
-			// 	generationsSinceLastImprovement = 0;
-			// }
+			// Adaptive Mutation / Stagnation Logic
+			if (currentMutationBoostDuration > 0) {
+				currentMutationBoostDuration--;
+				console.log(`[Stagnation] Mutation boost active. Duration remaining: ${currentMutationBoostDuration} generations. Current Rate: ${MUTATION_RATE.toFixed(3)}, Amount: ${MUTATION_AMOUNT.toFixed(3)}`);
+				if (statusMessageSpan) statusMessageSpan.textContent = `Boost Actif! ${currentMutationBoostDuration} gén. restantes. Taux Mut.: ${MUTATION_RATE.toFixed(2)}`;
+
+				if (currentMutationBoostDuration === 0) {
+					MUTATION_RATE = originalMutationRate;
+					MUTATION_AMOUNT = originalMutationAmount;
+					console.log(`[Stagnation] Mutation boost ended. Restored Mutation Rate: ${MUTATION_RATE.toFixed(3)}, Amount: ${MUTATION_AMOUNT.toFixed(3)}`);
+					if (statusMessageSpan) statusMessageSpan.textContent = "Boost terminé. Taux mutation restauré.";
+					// Update UI display for mutation rate if it exists
+					if (settingsInputs && settingsInputs.mutationRate && settingsValuesSpans && settingsValuesSpans.mutationRate) {
+						settingsInputs.mutationRate.value = MUTATION_RATE;
+						settingsValuesSpans.mutationRate.textContent = MUTATION_RATE.toFixed(2);
+					}
+					if (settingsInputs && settingsInputs.mutationAmount && settingsValuesSpans && settingsValuesSpans.mutationAmount) {
+						settingsInputs.mutationAmount.value = MUTATION_AMOUNT;
+						settingsValuesSpans.mutationAmount.textContent = MUTATION_AMOUNT.toFixed(2);
+					}
+				}
+			} else {
+				if (overallBestScore > lastOverallBestScoreForStagnation) {
+					lastOverallBestScoreForStagnation = overallBestScore;
+					generationsSinceOverallBestScoreImprovement = 0;
+					console.log(`[Stagnation] Overall best score improved to ${overallBestScore.toFixed(2)}. Reset stagnation counter.`);
+				} else {
+					generationsSinceOverallBestScoreImprovement++;
+					console.log(`[Stagnation] No improvement in overall best score for ${generationsSinceOverallBestScoreImprovement} generations. Current best for stagnation tracking: ${lastOverallBestScoreForStagnation.toFixed(2)}`);
+				}
+
+				if (generationsSinceOverallBestScoreImprovement >= MAX_GENERATIONS_WITHOUT_IMPROVEMENT) {
+					originalMutationRate = MUTATION_RATE; // Save current before boosting
+					originalMutationAmount = MUTATION_AMOUNT; // Save current before boosting
+
+					MUTATION_RATE *= STAGNATION_MUTATION_BOOST_FACTOR;
+					MUTATION_AMOUNT *= STAGNATION_MUTATION_BOOST_FACTOR; // Also boosting amount
+
+					MUTATION_RATE = Math.min(MUTATION_RATE, 1.0); // Cap mutation rate
+					MUTATION_AMOUNT = Math.min(MUTATION_AMOUNT, 2.0); // Cap mutation amount
+
+					currentMutationBoostDuration = STAGNATION_BOOST_DURATION;
+					generationsSinceOverallBestScoreImprovement = 0; // Reset counter after activating boost
+
+					console.log(`[Stagnation] Stagnation detected! Activating mutation boost for ${STAGNATION_BOOST_DURATION} generations. New Rate: ${MUTATION_RATE.toFixed(3)}, New Amount: ${MUTATION_AMOUNT.toFixed(3)}`);
+					if (statusMessageSpan) statusMessageSpan.textContent = `Stagnation! Boost Mutation (${STAGNATION_BOOST_DURATION} gén.) Taux: ${MUTATION_RATE.toFixed(2)}`;
+					// Update UI display for mutation rate
+					if (settingsInputs && settingsInputs.mutationRate && settingsValuesSpans && settingsValuesSpans.mutationRate) {
+						settingsInputs.mutationRate.value = MUTATION_RATE;
+						settingsValuesSpans.mutationRate.textContent = MUTATION_RATE.toFixed(2);
+					}
+					if (settingsInputs && settingsInputs.mutationAmount && settingsValuesSpans && settingsValuesSpans.mutationAmount) {
+						settingsInputs.mutationAmount.value = MUTATION_AMOUNT;
+						settingsValuesSpans.mutationAmount.textContent = MUTATION_AMOUNT.toFixed(2);
+					}
+				}
+			}
+			// Update actualMutationRate and actualMutationAmount for the current generation's reproduction phase
+			actualMutationRate = MUTATION_RATE;
+			actualMutationAmount = MUTATION_AMOUNT;
+
 
 			if (childrenNeeded > 0 && scoredNetworks.length > 0) {
 				if (SELECTION_METHOD === 'tournament') {
@@ -2232,6 +2321,9 @@
 				initialEpsilon: parseFloat(document.getElementById('epsilonInitialInput').value),
 				finalEpsilon: parseFloat(document.getElementById('epsilonFinalInput').value),
 				epsilonDecayRate: parseFloat(document.getElementById('epsilonDecayRateInput').value),
+            MAX_GENERATIONS_WITHOUT_IMPROVEMENT: parseInt(document.getElementById('maxGenerationsWithoutImprovementInput').value),
+            STAGNATION_MUTATION_BOOST_FACTOR: parseFloat(document.getElementById('stagnationMutationBoostFactorInput').value),
+            STAGNATION_BOOST_DURATION: parseInt(document.getElementById('stagnationBoostDurationInput').value),
 				// maxGenerationsWithoutImprovement: parseInt(document.getElementById('maxGenerationsWithoutImprovementInput').value), // Commented out
 				// stagnationActionFactor: parseFloat(document.getElementById('stagnationActionFactorInput').value), // Commented out
 
@@ -2347,6 +2439,9 @@
 				setFieldValue('epsilonInitialInput', loadedSettings.initialEpsilon, false, true, 'epsilonInitialValue');
 				setFieldValue('epsilonFinalInput', loadedSettings.epsilonFinal, false, true, 'epsilonFinalValue');
 				setFieldValue('epsilonDecayRateInput', loadedSettings.epsilonDecayRate, false, true, 'epsilonDecayRateValue');
+				setFieldValue('maxGenerationsWithoutImprovementInput', loadedSettings.MAX_GENERATIONS_WITHOUT_IMPROVEMENT);
+				setFieldValue('stagnationMutationBoostFactorInput', loadedSettings.STAGNATION_MUTATION_BOOST_FACTOR);
+				setFieldValue('stagnationBoostDurationInput', loadedSettings.STAGNATION_BOOST_DURATION);
 				// setFieldValue('maxGenerationsWithoutImprovementInput', loadedSettings.maxGenerationsWithoutImprovement); // Commented out
 				// setFieldValue('stagnationActionFactorInput', loadedSettings.stagnationActionFactor, false, true, 'stagnationActionFactorValue'); // Commented out
 
